@@ -21,10 +21,10 @@ pub trait Migration: Send + Sync {
     fn description(&self) -> &str;
     
     /// Apply the migration (upgrade)
-    fn up(&self, conn: &mut Connection) -> Result<()>;
+    fn up(&self, conn: &Connection) -> Result<()>;
     
     /// Rollback the migration (downgrade)
-    fn down(&self, conn: &mut Connection) -> Result<()>;
+    fn down(&self, conn: &Connection) -> Result<()>;
 }
 
 /// Record of an applied migration in the database
@@ -45,29 +45,32 @@ pub struct MigrationResult {
 }
 
 /// Error types for migration operations
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MigrationError {
-    #[error("Migration version {0} is already applied")]
     AlreadyApplied(i64),
-    
-    #[error("Migration version {0} not found")]
     NotFound(i64),
-    
-    #[error("Cannot rollback: no migrations applied")]
     NothingToRollback,
-    
-    #[error("Migration version {0} depends on unapplied version {1}")]
     MissingDependency(i64, i64),
-    
-    #[error("Invalid migration sequence: versions must be consecutive")]
     InvalidSequence,
-    
-    #[error("Database schema version {0} is not supported (minimum: {1}, maximum: {2})")]
     UnsupportedVersion(i64, i64, i64),
-    
-    #[error("Migration failed: {0}")]
     MigrationFailed(String),
 }
+
+impl std::fmt::Display for MigrationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MigrationError::AlreadyApplied(v) => write!(f, "Migration version {} is already applied", v),
+            MigrationError::NotFound(v) => write!(f, "Migration version {} not found", v),
+            MigrationError::NothingToRollback => write!(f, "Cannot rollback: no migrations applied"),
+            MigrationError::MissingDependency(v, dep) => write!(f, "Migration version {} depends on unapplied version {}", v, dep),
+            MigrationError::InvalidSequence => write!(f, "Invalid migration sequence: versions must be consecutive"),
+            MigrationError::UnsupportedVersion(v, min, max) => write!(f, "Database schema version {} is not supported (minimum: {}, maximum: {})", v, min, max),
+            MigrationError::MigrationFailed(msg) => write!(f, "Migration failed: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for MigrationError {}
 
 pub struct Database {
     pub(crate) conn: Connection,
@@ -222,7 +225,7 @@ impl Database {
         let tx = self.conn.unchecked_transaction()?;
         
         // Apply the migration
-        match migration.up(&mut tx) {
+        match migration.up(&tx) {
             Ok(()) => {
                 // Record the migration
                 let checksum = self.compute_migration_checksum(version, migration.description())?;
@@ -275,7 +278,7 @@ impl Database {
         let tx = self.conn.unchecked_transaction()?;
         
         // Rollback the migration
-        match migration.down(&mut tx) {
+        match migration.down(&tx) {
             Ok(()) => {
                 // Remove the migration record
                 tx.execute(
@@ -490,9 +493,13 @@ impl Database {
             cfg.telemetry_enabled = telemetry.parse::<bool>().ok();
         }
         if let Some(plugin_trust) = self.get_config_kv("plugin_trust.trusted_sources")? {
-            cfg.plugin_trust = PluginTrustConfig {
-                trusted_sources: serde_json::from_str(&plugin_trust)?,
-            };
+            cfg.plugin_trust.trusted_sources = serde_json::from_str(&plugin_trust)?;
+        }
+        if let Some(trusted_pubs) = self.get_config_kv("plugin_trust.trusted_publishers")? {
+            cfg.plugin_trust.trusted_publishers = serde_json::from_str(&trusted_pubs)?;
+        }
+        if let Some(req_sigs) = self.get_config_kv("plugin_trust.require_signatures")? {
+            cfg.plugin_trust.require_signatures = req_sigs.parse::<bool>().unwrap_or(false);
         }
         if let Some(wallet_encryption) = self.get_config_kv("wallet_encryption")? {
             cfg.wallet_encryption = Some(serde_json::from_str(&wallet_encryption)?);
@@ -1110,12 +1117,12 @@ impl Migration for MigrationV1 {
         "initial_schema"
     }
     
-    fn up(&self, conn: &mut Connection) -> Result<()> {
+    fn up(&self, conn: &Connection) -> Result<()> {
         // This is a no-op since the initial schema is already applied in SCHEMA
         Ok(())
     }
     
-    fn down(&self, conn: &mut Connection) -> Result<()> {
+    fn down(&self, conn: &Connection) -> Result<()> {
         // Rollback: drop all tables
         conn.execute_batch(
             "DROP TABLE IF EXISTS events;

@@ -83,23 +83,7 @@ pub fn generate_bindings(wasm_path: &Path, language: BindingLanguage) -> Result<
     }
 }
 
-#[cfg(test)]
 pub fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
-    let spec = contract_spec_section(wasm)?;
-    let cursor = Cursor::new(spec);
-    let entries = ScSpecEntry::read_xdr_iter(&mut Limited::new(
-        cursor,
-        Limits {
-            depth: 500,
-            len: 0x1000000,
-        },
-    ))
-    .collect::<std::result::Result<Vec<_>, _>>()
-    .context("Failed to decode contractspecv0 XDR metadata")?;
-    Ok(entries)
-}
-
-fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
     let spec = contract_spec_section(wasm)?;
     let cursor = Cursor::new(spec);
     let entries = ScSpecEntry::read_xdr_iter(&mut Limited::new(

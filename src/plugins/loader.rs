@@ -43,6 +43,14 @@ pub enum PluginLoadError {
     RegistrationRuntimePanic { path: String, detail: String },
     /// The plugin requested capabilities not permitted by its trust level.
     PermissionDenied { path: String, capabilities: String },
+    /// The publisher signature verification failed.
+    VerificationFailed {
+        path: String,
+        status: String,
+        detail: String,
+    },
+    /// The plugin publisher signature is valid but key is untrusted.
+    UntrustedPublisher { path: String, publisher_key: String },
 }
 
 impl PluginLoadError {
@@ -56,6 +64,8 @@ impl PluginLoadError {
             Self::ManifestIncompatible { .. } => "manifest_incompatible",
             Self::RegistrationRuntimePanic { .. } => "runtime_panic",
             Self::PermissionDenied { .. } => "permission_denied",
+            Self::VerificationFailed { .. } => "verification_failed",
+            Self::UntrustedPublisher { .. } => "untrusted_publisher",
         }
     }
 
@@ -101,6 +111,17 @@ impl PluginLoadError {
             Self::PermissionDenied { path, capabilities } => format!(
                 "Plugin at '{path}' requested denied capabilities: {capabilities}.\n  \
                  Fix: Install from a trusted source or adjust its manifest requirements.",
+            ),
+            Self::VerificationFailed { path, status, detail } => format!(
+                "Plugin signature verification failed for '{path}'.\n  \
+                 Status: {status}\n  \
+                 Detail: {detail}\n  \
+                 Fix: Rebuild/re-sign the plugin or install from a verified publisher.",
+            ),
+            Self::UntrustedPublisher { path, publisher_key } => format!(
+                "Plugin at '{path}' signed by untrusted publisher '{publisher_key}'.\n  \
+                 Fix: Add publisher key to 'plugin_trust.trusted_publishers' in config \
+                 or install from a trusted publisher.",
             ),
         }
     }
@@ -208,13 +229,51 @@ impl PluginManager {
             });
         }
 
-        // ── Manifest compatibility (if present beside the library) ───────────
+        // ── Manifest compatibility and signature verification ────────────────
+        let config = crate::utils::config::load().unwrap_or_default();
         if let Ok(Some(mf)) = manifest::load_manifest_for_library(Path::new(path_ref)) {
             mf.validate()
                 .map_err(|e| PluginLoadError::ManifestIncompatible {
                     path: path_display.clone(),
                     detail: e.to_string(),
                 })?;
+
+            let ver_res =
+                crate::plugins::verifier::verify_plugin_signature(path_ref, &mf, &config);
+            match ver_res.status {
+                crate::plugins::verifier::VerificationStatus::InvalidSignature
+                | crate::plugins::verifier::VerificationStatus::MalformedKey
+                | crate::plugins::verifier::VerificationStatus::MalformedSignature => {
+                    return Err(PluginLoadError::VerificationFailed {
+                        path: path_display,
+                        status: ver_res.status.label().to_string(),
+                        detail: ver_res.detail.unwrap_or_default(),
+                    });
+                }
+                crate::plugins::verifier::VerificationStatus::UntrustedPublisher => {
+                    return Err(PluginLoadError::UntrustedPublisher {
+                        path: path_display,
+                        publisher_key: ver_res.publisher_key.unwrap_or_default(),
+                    });
+                }
+                crate::plugins::verifier::VerificationStatus::Unsigned => {
+                    if config.plugin_trust.require_signatures {
+                        return Err(PluginLoadError::VerificationFailed {
+                            path: path_display,
+                            status: "unsigned".to_string(),
+                            detail: "CLI policy requires signed plugins, but plugin is unsigned"
+                                .to_string(),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        } else if config.plugin_trust.require_signatures {
+            return Err(PluginLoadError::VerificationFailed {
+                path: path_display,
+                status: "unsigned".to_string(),
+                detail: "CLI policy requires signed plugins, but no manifest was found".to_string(),
+            });
         }
 
         let registry = load_registry().unwrap_or_default();

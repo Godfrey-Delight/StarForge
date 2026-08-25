@@ -28,6 +28,15 @@ pub struct PluginManifest {
     /// Capabilities this AI plugin requires.
     #[serde(default)]
     pub required_capabilities: Vec<String>,
+    /// Optional publisher name or identifier.
+    #[serde(default)]
+    pub publisher: Option<String>,
+    /// Optional publisher public key (Stellar G-address or 32-byte hex key).
+    #[serde(default)]
+    pub publisher_key: Option<String>,
+    /// Optional Ed25519 cryptographic signature (hex or base64).
+    #[serde(default)]
+    pub signature: Option<String>,
 }
 
 impl PluginManifest {
@@ -43,6 +52,27 @@ impl PluginManifest {
             anyhow::bail!(
                 "Plugin manifest: 'starforge_version' is required (the StarForge CLI version this plugin targets)"
             );
+        }
+
+        if let Some(ref pk) = self.publisher_key {
+            if !pk.trim().is_empty() {
+                crate::plugins::verifier::parse_public_key_bytes(pk).with_context(|| {
+                    format!("Plugin manifest: invalid 'publisher_key' '{}'", pk)
+                })?;
+            }
+        }
+
+        if let Some(ref sig) = self.signature {
+            if !sig.trim().is_empty() {
+                if self.publisher_key.as_deref().unwrap_or("").trim().is_empty() {
+                    anyhow::bail!(
+                        "Plugin manifest: 'signature' is present but 'publisher_key' is missing"
+                    );
+                }
+                crate::plugins::verifier::parse_signature_bytes(sig).with_context(|| {
+                    format!("Plugin manifest: invalid 'signature' '{}'", sig)
+                })?;
+            }
         }
 
         if !is_core_version_compatible(&self.starforge_version) {
@@ -83,6 +113,7 @@ impl PluginManifest {
         Ok(())
     }
 }
+
 
 /// Locate and parse `starforge-plugin.toml` beside the library or in its parent directory.
 pub fn load_manifest_for_library(library_path: &Path) -> Result<Option<PluginManifest>> {
@@ -202,6 +233,10 @@ mod tests {
             description: String::new(),
             starforge_version_min: None,
             starforge_version_max: None,
+            required_capabilities: vec![],
+            publisher: None,
+            publisher_key: None,
+            signature: None,
         };
         assert!(manifest.validate().is_ok());
     }
@@ -222,6 +257,10 @@ mod tests {
             description: String::new(),
             starforge_version_min: None,
             starforge_version_max: None,
+            required_capabilities: vec![],
+            publisher: None,
+            publisher_key: None,
+            signature: None,
         };
         assert!(manifest.validate().is_err());
     }

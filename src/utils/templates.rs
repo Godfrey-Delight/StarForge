@@ -94,8 +94,11 @@ pub struct ChangelogEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateEntry {
     pub name: String,
+    #[serde(default)]
     pub repository: Option<String>,
+    #[serde(default)]
     pub security_review: Option<SecurityReview>,
+    #[serde(default)]
     pub changelog: Option<Vec<ChangelogEntry>>,
     pub description: String,
     pub version: String,
@@ -2044,6 +2047,9 @@ mod tests {
     fn make_entry(name: &str) -> TemplateEntry {
         TemplateEntry {
             name: name.to_string(),
+            repository: None,
+            security_review: None,
+            changelog: None,
             version: "1.0.0".to_string(),
             description: String::new(),
             author: String::new(),
@@ -2378,6 +2384,9 @@ mod tests {
         let mut registry = TemplateRegistry::default();
         registry.templates.push(TemplateEntry {
             name: "uniswap-v2".to_string(),
+            repository: None,
+            security_review: None,
+            changelog: None,
             version: "1.0.0".to_string(),
             description: "Uniswap V2 DEX implementation".to_string(),
             author: "DeFi Team".to_string(),
@@ -2429,6 +2438,9 @@ mod tests {
 
         let entry = TemplateEntry {
             name: "my-template".to_string(),
+            repository: None,
+            security_review: None,
+            changelog: None,
             source: TemplateSource::Git {
                 url: "https://example.com/repo.git".to_string(),
                 branch: None,
@@ -2483,6 +2495,9 @@ mod tests {
     fn sample_entry() -> TemplateEntry {
         TemplateEntry {
             name: "sample".to_string(),
+            repository: None,
+            security_review: None,
+            changelog: None,
             version: "1.0.0".to_string(),
             description: String::new(),
             author: String::new(),

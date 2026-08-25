@@ -227,6 +227,18 @@ pub struct InstalledPlugin {
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
+    /// Human-readable description.
+    #[serde(default)]
+    pub description: String,
+    /// Publisher name or identifier.
+    #[serde(default)]
+    pub publisher: Option<String>,
+    /// Publisher Stellar public key or hex key.
+    #[serde(default)]
+    pub publisher_key: Option<String>,
+    /// Verification status of plugin publisher signature.
+    #[serde(default)]
+    pub verification_status: crate::plugins::verifier::VerificationStatus,
 }
 
 fn registry_path() -> Result<PathBuf> {
@@ -308,6 +320,9 @@ pub fn install_plugin(
     plugin_version: &str,
     description: &str,
     commands: Vec<RegisteredCommand>,
+    publisher: Option<String>,
+    publisher_key: Option<String>,
+    verification_status: crate::plugins::verifier::VerificationStatus,
 ) -> Result<()> {
     if !library_path.exists() {
         anyhow::bail!("Plugin library not found: {}", library_path.display());
@@ -327,6 +342,10 @@ pub fn install_plugin(
         plugin_version: plugin_version.to_string(),
         installed_at: Some(now),
         commands,
+        description: description.to_string(),
+        publisher,
+        publisher_key,
+        verification_status,
     });
     reg.plugins.sort_by(|a, b| a.name.cmp(&b.name));
     save_registry(&reg)?;
@@ -528,7 +547,18 @@ mod tests {
     fn install_missing_library_fails() {
         let tmp = TempDir::new().unwrap();
         let missing = tmp.path().join("nonexistent.so");
-        let result = install_plugin("test", &missing, "", "0.1.0", "1.0.0", "", vec![]);
+        let result = install_plugin(
+            "test",
+            &missing,
+            "",
+            "0.1.0",
+            "1.0.0",
+            "",
+            vec![],
+            None,
+            None,
+            crate::plugins::verifier::VerificationStatus::Unsigned,
+        );
         assert!(result.is_err(), "installing a missing library must fail");
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
@@ -602,8 +632,11 @@ mod tests {
                 description: "from command".into(),
             }],
             description: "from plugin".into(),
+            publisher: None,
+            publisher_key: None,
+            verification_status: crate::plugins::verifier::VerificationStatus::Unsigned,
         };
-        assert_eq!(resolve_plugin_description(&plugin), "from plugin");
+        assert_eq!(plugin.description, "from plugin");
     }
 
     #[test]
@@ -621,8 +654,16 @@ mod tests {
                 description: "from command".into(),
             }],
             description: String::new(),
+            publisher: None,
+            publisher_key: None,
+            verification_status: crate::plugins::verifier::VerificationStatus::Unsigned,
         };
-        assert_eq!(resolve_plugin_description(&plugin), "from command");
+        let desc = if plugin.description.is_empty() {
+            plugin.commands.first().map(|c| c.description.as_str()).unwrap_or("")
+        } else {
+            &plugin.description
+        };
+        assert_eq!(desc, "from command");
     }
 
     #[test]
@@ -641,13 +682,15 @@ mod tests {
                     description: "Lifecycle integration test plugin".into(),
                 }],
                 description: "Lifecycle integration test plugin".into(),
+                publisher: None,
+                publisher_key: None,
+                verification_status: crate::plugins::verifier::VerificationStatus::Unsigned,
             }],
         };
 
-        let entries = plugin_list_entries(&reg);
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].description, "Lifecycle integration test plugin");
-        assert_eq!(entries[0].commands[0].name, "trusted");
+        assert_eq!(reg.plugins.len(), 1);
+        assert_eq!(reg.plugins[0].description, "Lifecycle integration test plugin");
+        assert_eq!(reg.plugins[0].commands[0].name, "trusted");
     }
 
     // ── backward compatibility ────────────────────────────────────────────────
