@@ -357,7 +357,7 @@ async fn main() {
         Ok(id) => id,
         Err(e) => {
             eprintln!("Invalid correlation ID: {}", e);
-            std::process::exit(2);
+            utils::exit_codes::ExitCode::Usage.exit();
         }
     };
     utils::correlation::init(correlation_id);
@@ -573,7 +573,8 @@ async fn main() {
         // still produce a useful, command-agnostic one-liner.
         utils::context_help::troubleshoot_merging(&e.to_string(), &mut hints);
         utils::print::cli_error(&e, &hints.iter().map(String::as_str).collect::<Vec<_>>());
-        std::process::exit(1);
+        let code = utils::exit_codes::determine_exit_code(&e);
+        code.exit();
     }
 
     // On a successful run, optionally surface a single proactive tip.

@@ -1305,6 +1305,30 @@ starforge db stats
 
 ---
 
+## Standardized CLI Exit Codes
+
+StarForge maps all execution outcomes and error conditions to stable exit codes via `src/utils/exit_codes.rs`.
+
+### Architecture
+
+- `ExitCode`: `#[repr(i32)]` enum (`Success = 0`, `GeneralFailure = 1`, `Usage = 2`, `Config = 3`, `Network = 4`, `Signing = 5`, `Execution = 6`, `Environment = 7`).
+- `determine_exit_code(&anyhow::Error)`: Inspects error messages, downcast error types, and cause chains to select the appropriate `ExitCode`.
+- `ExitCode::exit()`: Invokes `std::process::exit(code)`.
+
+### Developer Guidelines
+
+When returning errors from command handlers:
+1. Prefer returning descriptive `anyhow::Result` errors with domain-specific keywords (`network`, `config`, `secret`, `wasm`, etc.).
+2. Do **not** call `std::process::exit()` directly inside command handlers; return an error up to `main()` so logging and telemetry complete cleanly.
+3. Add classification unit tests in `tests/cli_exit_codes.rs` if introducing new error domain patterns.
+
+```bash
+# Run exit code tests
+cargo test --test cli_exit_codes
+```
+
+---
+
 ## Contributing Guidelines
 
 ### Pull Request Process

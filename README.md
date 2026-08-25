@@ -172,6 +172,34 @@ Common settings:
 
 For privacy information, see [Telemetry & Privacy](#telemetry--privacy).
 
+### CLI exit codes
+
+`starforge` uses stable, standardized process exit codes across all commands for scriptability and automated CI/CD integration:
+
+| Exit Code | Name | Description | Common Triggers |
+|---|---|---|---|
+| **0** | `SUCCESS` | Command completed successfully | Normal execution |
+| **1** | `GENERAL_FAILURE` | Unclassified runtime error | Unexpected execution panic or internal error |
+| **2** | `USAGE_ERROR` | Syntax or argument error | Missing required arg, invalid flag, bad correlation ID |
+| **3** | `CONFIG_ERROR` | Configuration error | Missing/corrupted `config.toml`, unsupported network |
+| **4** | `NETWORK_ERROR` | Network/RPC failure | Horizon or Soroban RPC unreachable, connection timeout |
+| **5** | `SIGNING_ERROR` | Cryptographic/signing error | Invalid secret key, wrong decryption passphrase |
+| **6** | `EXECUTION_ERROR` | Contract/build error | WASM build failure, Soroban transaction simulation revert |
+| **7** | `ENVIRONMENT_ERROR` | System environment error | Missing Docker/curl dependency, permission denied |
+
+In shell scripts, inspect `$?` to handle specific failures gracefully:
+
+```bash
+starforge wallet show alice || {
+  rc=$?
+  if [ "$rc" -eq 5 ]; then
+    echo "Authentication failed: passphrase required"
+  elif [ "$rc" -eq 4 ]; then
+    echo "Network error: check RPC endpoint"
+  fi
+}
+```
+
 ### Scaffold commands
 
 ```bash

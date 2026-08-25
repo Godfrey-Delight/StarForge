@@ -21,10 +21,10 @@ pub trait Migration: Send + Sync {
     fn description(&self) -> &str;
     
     /// Apply the migration (upgrade)
-    fn up(&self, conn: &mut Connection) -> Result<()>;
+    fn up(&self, conn: &Connection) -> Result<()>;
     
     /// Rollback the migration (downgrade)
-    fn down(&self, conn: &mut Connection) -> Result<()>;
+    fn down(&self, conn: &Connection) -> Result<()>;
 }
 
 /// Record of an applied migration in the database
@@ -44,30 +44,40 @@ pub struct MigrationResult {
     pub migrations_rolled_back: Vec<i64>,
 }
 
-/// Error types for migration operations
-#[derive(Debug, thiserror::Error)]
+use std::fmt;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MigrationError {
-    #[error("Migration version {0} is already applied")]
     AlreadyApplied(i64),
-    
-    #[error("Migration version {0} not found")]
     NotFound(i64),
-    
-    #[error("Cannot rollback: no migrations applied")]
     NothingToRollback,
-    
-    #[error("Migration version {0} depends on unapplied version {1}")]
     MissingDependency(i64, i64),
-    
-    #[error("Invalid migration sequence: versions must be consecutive")]
     InvalidSequence,
-    
-    #[error("Database schema version {0} is not supported (minimum: {1}, maximum: {2})")]
     UnsupportedVersion(i64, i64, i64),
-    
-    #[error("Migration failed: {0}")]
     MigrationFailed(String),
 }
+
+impl fmt::Display for MigrationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AlreadyApplied(v) => write!(f, "Migration version {v} is already applied"),
+            Self::NotFound(v) => write!(f, "Migration version {v} not found"),
+            Self::NothingToRollback => write!(f, "Cannot rollback: no migrations applied"),
+            Self::MissingDependency(v, dep) => {
+                write!(f, "Migration version {v} depends on unapplied version {dep}")
+            }
+            Self::InvalidSequence => {
+                write!(f, "Invalid migration sequence: versions must be consecutive")
+            }
+            Self::UnsupportedVersion(v, min, max) => {
+                write!(f, "Database schema version {v} is not supported (minimum: {min}, maximum: {max})")
+            }
+            Self::MigrationFailed(msg) => write!(f, "Migration failed: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for MigrationError {}
 
 pub struct Database {
     pub(crate) conn: Connection,
@@ -117,7 +127,7 @@ impl Database {
         self.ensure_column("wallets", "rotation_history", "TEXT NOT NULL DEFAULT '[]'")?;
         
         // Run migrations if this is not a fresh database
-        if self.get_meta("schema_version").is_ok() {
+        if self.get_meta("schema_version")?.is_some() {
             self.run_migrations()?;
         } else {
             // Fresh database - set initial version
@@ -222,7 +232,7 @@ impl Database {
         let tx = self.conn.unchecked_transaction()?;
         
         // Apply the migration
-        match migration.up(&mut tx) {
+        match migration.up(&tx) {
             Ok(()) => {
                 // Record the migration
                 let checksum = self.compute_migration_checksum(version, migration.description())?;
@@ -275,7 +285,7 @@ impl Database {
         let tx = self.conn.unchecked_transaction()?;
         
         // Rollback the migration
-        match migration.down(&mut tx) {
+        match migration.down(&tx) {
             Ok(()) => {
                 // Remove the migration record
                 tx.execute(
@@ -1110,12 +1120,12 @@ impl Migration for MigrationV1 {
         "initial_schema"
     }
     
-    fn up(&self, conn: &mut Connection) -> Result<()> {
+    fn up(&self, conn: &Connection) -> Result<()> {
         // This is a no-op since the initial schema is already applied in SCHEMA
         Ok(())
     }
     
-    fn down(&self, conn: &mut Connection) -> Result<()> {
+    fn down(&self, conn: &Connection) -> Result<()> {
         // Rollback: drop all tables
         conn.execute_batch(
             "DROP TABLE IF EXISTS events;
@@ -1347,16 +1357,16 @@ mod tests {
     fn migration_v1_up_is_noop() {
         let db = in_memory_db();
         let migration = MigrationV1 {};
-        let mut conn = db.conn;
+        let conn = db.conn;
         // Should not fail even though schema already exists
-        assert!(migration.up(&mut conn).is_ok());
+        assert!(migration.up(&conn).is_ok());
     }
 
     #[test]
     fn migration_v1_down_drops_tables() {
         let db = in_memory_db();
         let migration = MigrationV1 {};
-        let mut conn = db.conn;
+        let conn = db.conn;
         
         // Verify tables exist before rollback
         let table_count: i64 = conn
@@ -1369,7 +1379,7 @@ mod tests {
         assert!(table_count > 0);
         
         // Rollback
-        migration.down(&mut conn).unwrap();
+        migration.down(&conn).unwrap();
         
         // Verify tables are dropped
         let table_count_after: i64 = conn
