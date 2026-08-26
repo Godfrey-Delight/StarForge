@@ -88,7 +88,7 @@ fn skill_level_parses_all_variants() {
         ("senior", SkillLevel::Advanced),
     ] {
         assert_eq!(
-            SkillLevel::from_str(input),
+            SkillLevel::parse_lenient(input),
             Some(expected),
             "Expected '{}' to parse correctly",
             input
@@ -100,7 +100,7 @@ fn skill_level_parses_all_variants() {
 fn skill_level_rejects_unknown_strings() {
     for bad in ["", "pro", "newbie", "wizard", "123"] {
         assert_eq!(
-            SkillLevel::from_str(bad),
+            SkillLevel::parse_lenient(bad),
             None,
             "Expected '{}' to be rejected",
             bad
