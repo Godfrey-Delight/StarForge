@@ -185,7 +185,7 @@ impl AIContextManager {
             items.extend(edits);
         }
 
-        items.sort_by(|a, b| b.priority.cmp(&a.priority));
+        items.sort_by_key(|a| std::cmp::Reverse(a.priority));
 
         Ok(items)
     }

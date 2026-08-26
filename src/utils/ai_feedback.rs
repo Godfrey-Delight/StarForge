@@ -406,7 +406,7 @@ pub fn get_feature_stats(feature: &str) -> Result<FeatureStats> {
 
     let mut top_corrections: Vec<(CorrectionCategory, usize)> =
         correction_counts.into_iter().collect();
-    top_corrections.sort_by(|a, b| b.1.cmp(&a.1));
+    top_corrections.sort_by_key(|a| std::cmp::Reverse(a.1));
     top_corrections.truncate(5);
 
     let metrics = calculate_quality_metrics(feature)?;

@@ -355,11 +355,10 @@ pub struct ParamInfo {
 
 fn extract_functions_with_signatures(source: &str) -> Vec<FunctionInfo> {
     let mut functions = Vec::new();
-    let mut current_line = 1u32;
     let mut in_function = false;
     let mut brace_depth = 0u32;
 
-    for line in source.lines() {
+    for (current_line, line) in (1u32..).zip(source.lines()) {
         let trimmed = line.trim();
 
         if !in_function {
@@ -378,7 +377,6 @@ fn extract_functions_with_signatures(source: &str) -> Vec<FunctionInfo> {
                 in_function = false;
             }
         }
-        current_line += 1;
     }
     functions
 }

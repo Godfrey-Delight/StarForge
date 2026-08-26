@@ -640,7 +640,7 @@ impl TestOptimizer {
         let avg = total_duration as f64 / results.len() as f64;
 
         let mut sorted = results.to_vec();
-        sorted.sort_by(|a, b| a.duration_ms.cmp(&b.duration_ms));
+        sorted.sort_by_key(|a| a.duration_ms);
 
         let median = sorted[sorted.len() / 2].duration_ms as f64;
         let p95_idx = ((sorted.len() as f64 * 0.95) as usize).min(sorted.len() - 1);
@@ -777,7 +777,7 @@ impl TestOptimizer {
                 }
             })
             .collect();
-        category_summary.sort_by(|a, b| b.total_failures.cmp(&a.total_failures));
+        category_summary.sort_by_key(|a| std::cmp::Reverse(a.total_failures));
 
         let recurrence_ratio = if total_failing > 0 {
             all_failing

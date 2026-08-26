@@ -621,7 +621,7 @@ fn detect_storage_packing(content: &str, file: &str) -> Vec<TransformSuggestion>
             }
             if fields.len() >= 2 {
                 let mut sorted = fields.clone();
-                sorted.sort_by(|a, b| b.1.cmp(&a.1));
+                sorted.sort_by_key(|a| std::cmp::Reverse(a.1));
                 if sorted != fields {
                     suggestions.push(TransformSuggestion {
                         file: file.to_string(),

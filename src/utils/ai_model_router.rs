@@ -626,15 +626,15 @@ pub fn model_performance_stats(days: Option<u32>) -> Result<Vec<ModelPerformance
                     } else {
                         0.0
                     },
-                    avg_latency_ms: if total > 0 { latency / total } else { 0 },
-                    avg_tokens: if total > 0 { tokens / total } else { 0 },
+                    avg_latency_ms: latency.checked_div(total).unwrap_or(0),
+                    avg_tokens: tokens.checked_div(total).unwrap_or(0),
                     total_calls: total,
                 }
             },
         )
         .collect();
 
-    stats.sort_by(|a, b| b.total_calls.cmp(&a.total_calls));
+    stats.sort_by_key(|a| std::cmp::Reverse(a.total_calls));
     Ok(stats)
 }
 

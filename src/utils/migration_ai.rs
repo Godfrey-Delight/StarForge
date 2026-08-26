@@ -406,9 +406,8 @@ fn analyze_protocol_upgrade(
     _suggestions: &mut [MigrationSuggestion],
 ) {
     match (config.old_protocol_version, config.new_protocol_version) {
-        (Some(old), Some(new)) if old != new => {
-            if new > old {
-                breaking_changes.push(BreakingChange {
+        (Some(old), Some(new)) if old != new && new > old => {
+            breaking_changes.push(BreakingChange {
                     category: "protocol_upgrade".into(),
                     severity: Severity::Major,
                     title: format!("Soroban protocol upgrade: v{} → v{}", old, new),
@@ -425,7 +424,6 @@ fn analyze_protocol_upgrade(
                     ),
                     affected_items: vec!["protocol".into(), "host_functions".into()],
                 });
-            }
         }
         _ => {}
     }

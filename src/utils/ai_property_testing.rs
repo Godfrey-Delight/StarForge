@@ -148,7 +148,7 @@ pub fn discover_properties(source_code: &str) -> Result<Vec<DiscoveredProperty>>
                 ),
                 property_type: PropertyType::Postcondition,
                 target_function: Some(func.name.clone()),
-                invariants: vec![format!("result is not panic")],
+                invariants: vec!["result is not panic".to_string()],
                 confidence: 0.9,
             });
         }
