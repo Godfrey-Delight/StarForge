@@ -642,7 +642,25 @@ pub fn is_archive_path(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Extract a `.zip` template package into `dest`, guarding against zip-slip paths.
+/// Unix file-type bits (`st_mode & S_IFMT`) that mark a ZIP entry as a symlink,
+/// as opposed to a regular file (`S_IFREG`) or directory (`S_IFDIR`).
+const UNIX_S_IFMT: u32 = 0o170000;
+const UNIX_S_IFLNK: u32 = 0o120000;
+
+/// True if a Unix `unix_mode()` value (upper bits of a ZIP entry's external
+/// attributes) marks the entry as a symlink rather than a regular file or
+/// directory. Archives written on non-Unix systems have no such bits set.
+fn is_symlink_mode(mode: u32) -> bool {
+    mode & UNIX_S_IFMT == UNIX_S_IFLNK
+}
+
+/// Extract a `.zip` template package into `dest`.
+///
+/// Rejects the whole archive — rather than silently dropping individual
+/// entries — if any entry uses an absolute path, a `..` parent-traversal
+/// component, resolves outside `dest` (zip-slip), or is a symlink. A
+/// template package should never need any of these, and partially
+/// extracting an otherwise-malicious archive would be misleading.
 pub fn extract_zip_archive(archive: &Path, dest: &Path) -> Result<()> {
     use zip::ZipArchive;
 
@@ -659,10 +677,26 @@ pub fn extract_zip_archive(archive: &Path, dest: &Path) -> Result<()> {
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i)?;
-        let entry_path = match entry.enclosed_name() {
-            Some(p) => p.to_path_buf(),
-            None => continue,
-        };
+        let raw_name = entry.name().to_string();
+
+        // `enclosed_name()` returns None for entries with an absolute path or a
+        // `..` component that would escape the archive root — reject those
+        // outright instead of quietly skipping them.
+        let entry_path = entry.enclosed_name().map(|p| p.to_path_buf()).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Archive entry '{}' uses an absolute path or parent traversal ('..'), which is not allowed",
+                raw_name
+            )
+        })?;
+
+        if let Some(mode) = entry.unix_mode() {
+            if is_symlink_mode(mode) {
+                anyhow::bail!(
+                    "Archive entry '{}' is a symlink, which is not allowed",
+                    raw_name
+                );
+            }
+        }
 
         let out_path = dest_canon.join(&entry_path);
         if !out_path.starts_with(&dest_canon) {
@@ -2153,6 +2187,76 @@ mod tests {
         extract_zip_archive(&zip_path, &extract_dir).unwrap();
         let root = normalize_template_root(&extract_dir).unwrap();
         assert!(validate_template_structure(&root, "zip-tpl", "desc", "author", "1.0.0").is_ok());
+    }
+
+    /// Build a single-entry ZIP whose stored entry name is `raw_name`, bypassing
+    /// any path normalization (the writer stores the string verbatim; only the
+    /// reader-side `enclosed_name()` validates it), so malicious names can be
+    /// exercised the same way a hand-crafted attacker archive would.
+    fn build_zip_with_raw_entry_name(zip_path: &Path, raw_name: &str, contents: &[u8]) {
+        use zip::write::FileOptions;
+        use zip::ZipWriter;
+
+        let file = fs::File::create(zip_path).unwrap();
+        let mut zip = ZipWriter::new(file);
+        zip.start_file(raw_name, FileOptions::default()).unwrap();
+        std::io::Write::write_all(&mut zip, contents).unwrap();
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn extract_zip_archive_rejects_parent_traversal() {
+        let tmp = tempdir().unwrap();
+        let zip_path = tmp.path().join("evil.zip");
+        build_zip_with_raw_entry_name(&zip_path, "../escaped.txt", b"pwned");
+
+        let extract_dir = tmp.path().join("out");
+        let err = extract_zip_archive(&zip_path, &extract_dir).unwrap_err();
+        assert!(err.to_string().contains("parent traversal") || err.to_string().contains(".."));
+
+        // Nothing should have escaped into the parent of the destination dir.
+        assert!(!tmp.path().join("escaped.txt").exists());
+    }
+
+    #[test]
+    fn extract_zip_archive_rejects_absolute_path() {
+        let tmp = tempdir().unwrap();
+        let zip_path = tmp.path().join("evil.zip");
+        build_zip_with_raw_entry_name(&zip_path, "/etc/passwd-clone", b"pwned");
+
+        let extract_dir = tmp.path().join("out");
+        let err = extract_zip_archive(&zip_path, &extract_dir).unwrap_err();
+        assert!(err.to_string().contains("absolute path"));
+    }
+
+    #[test]
+    fn extract_zip_archive_stops_at_first_malicious_entry() {
+        use zip::write::FileOptions;
+        use zip::ZipWriter;
+
+        let tmp = tempdir().unwrap();
+        let zip_path = tmp.path().join("mixed.zip");
+        let file = fs::File::create(&zip_path).unwrap();
+        let mut zip = ZipWriter::new(file);
+        zip.start_file("README.md", FileOptions::default()).unwrap();
+        std::io::Write::write_all(&mut zip, b"# ok").unwrap();
+        zip.start_file("../escaped.txt", FileOptions::default())
+            .unwrap();
+        std::io::Write::write_all(&mut zip, b"pwned").unwrap();
+        zip.finish().unwrap();
+
+        let extract_dir = tmp.path().join("out");
+        assert!(extract_zip_archive(&zip_path, &extract_dir).is_err());
+        assert!(!tmp.path().join("escaped.txt").exists());
+    }
+
+    #[test]
+    fn is_symlink_mode_detects_symlink_and_ignores_other_types() {
+        // Regular file (`-rw-r--r--`) and directory (`drwxr-xr-x`) are not symlinks.
+        assert!(!is_symlink_mode(0o100644));
+        assert!(!is_symlink_mode(0o040755));
+        // Symlink (`lrwxrwxrwx`) is.
+        assert!(is_symlink_mode(0o120777));
     }
 
     fn walkdir_flat(dir: &Path) -> Vec<PathBuf> {
