@@ -2,12 +2,11 @@
 
 use super::ai_audit::{
     build_fallback_report, build_system_prompt, build_user_prompt, run_static_checks,
-    AiAuditResponse, AuditLevel, AuditRequest, SecurityAuditReport,
+    AiAuditResponse, AuditRequest, SecurityAuditReport,
 };
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use reqwest::Client;
-use serde_json::json;
 
 /// Anthropic API message format.
 #[derive(serde::Serialize)]

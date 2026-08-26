@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -448,8 +447,8 @@ fn parse_function_line(line: &str, line_num: u32) -> Option<FunctionInfo> {
     Some(FunctionInfo {
         name,
         signature: line.trim().to_string(),
-        is_public: is_public,
-        is_entry_point: is_entry_point,
+        is_public,
+        is_entry_point,
         is_mutating,
         params,
         return_type,
@@ -519,9 +518,7 @@ pub fn generate_test_priorities(analysis: &ContractAnalysis) -> Vec<TestPriority
     for func in &analysis.functions {
         let priority = if func.is_entry_point {
             TestPriority::Critical
-        } else if func.is_mutating && func.complexity_score > 3 {
-            TestPriority::High
-        } else if func.complexity_score > 5 {
+        } else if func.complexity_score > 5 || (func.is_mutating && func.complexity_score > 3) {
             TestPriority::High
         } else if func.is_mutating {
             TestPriority::Medium
@@ -1095,7 +1092,7 @@ pub fn find_test_files(project_path: &Path) -> Vec<PathBuf> {
         if let Ok(entries) = fs::read_dir(&tests_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "rs") {
+                if path.extension().is_some_and(|ext| ext == "rs") {
                     test_files.push(path);
                 }
             }
@@ -1108,7 +1105,7 @@ pub fn find_test_files(project_path: &Path) -> Vec<PathBuf> {
         if let Ok(entries) = fs::read_dir(&src_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().map_or(false, |ext| ext == "rs") {
+                if path.extension().is_some_and(|ext| ext == "rs") {
                     if let Ok(content) = fs::read_to_string(&path) {
                         if content.contains("#[cfg(test)]") {
                             test_files.push(path);

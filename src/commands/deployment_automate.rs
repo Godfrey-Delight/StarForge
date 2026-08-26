@@ -138,6 +138,10 @@ pub async fn handle(cmd: DeploymentAutomateCommands) -> Result<()> {
     }
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 async fn handle_run(
     wasm: PathBuf,
     network: String,
@@ -459,7 +463,7 @@ fn print_automation_result(result: &crate::utils::deployment_automation::Complet
     }
 }
 
-fn handle_history(limit: usize) -> Result<()> {
+fn handle_history(_limit: usize) -> Result<()> {
     p::header("Deployment Automation History");
     p::separator();
 

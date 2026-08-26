@@ -229,7 +229,7 @@ async fn test_network(network_name: Option<String>) -> Result<()> {
     p::info(&format!("Testing connectivity to '{}'…", test_network));
     p::info(&format!("Horizon: {}", net_cfg.horizon_url));
 
-    let client = reqwest::Client::builder()
+    let _client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .pool_max_idle_per_host(10)
         .build()?;
@@ -237,7 +237,7 @@ async fn test_network(network_name: Option<String>) -> Result<()> {
     // Test Horizon endpoint
     let client = http_client::get_client();
     match client
-        .get(&format!("{}/health", net_cfg.horizon_url))
+        .get(format!("{}/health", net_cfg.horizon_url))
         .send()
         .await
     {

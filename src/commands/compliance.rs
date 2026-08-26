@@ -8,8 +8,6 @@ use crate::utils::print as p;
 use anyhow::Result;
 use clap::{Args, Subcommand};
 use colored::Colorize;
-use colored::*;
-use std::collections::HashMap;
 
 #[derive(Subcommand)]
 pub enum ComplianceCommands {
@@ -244,7 +242,7 @@ fn handle_check(args: CheckArgs) -> Result<()> {
     p::kv("Network", &report.network);
     p::kv(
         "Timestamp",
-        &report.timestamp.get(..19).unwrap_or(&report.timestamp),
+        report.timestamp.get(..19).unwrap_or(&report.timestamp),
     );
 
     println!();
@@ -461,11 +459,11 @@ fn handle_show_policy(args: ShowPolicyArgs) -> Result<()> {
     p::kv("Enabled", if policy.enabled { "yes" } else { "no" });
     p::kv(
         "Created",
-        &policy.created_at.get(..19).unwrap_or(&policy.created_at),
+        policy.created_at.get(..19).unwrap_or(&policy.created_at),
     );
     p::kv(
         "Updated",
-        &policy.updated_at.get(..19).unwrap_or(&policy.updated_at),
+        policy.updated_at.get(..19).unwrap_or(&policy.updated_at),
     );
 
     if !policy.config.is_empty() {
@@ -579,7 +577,7 @@ fn handle_show_report(args: ShowReportArgs) -> Result<()> {
     p::kv("Network", &report.network);
     p::kv(
         "Timestamp",
-        &report.timestamp.get(..19).unwrap_or(&report.timestamp),
+        report.timestamp.get(..19).unwrap_or(&report.timestamp),
     );
     let status_str = if report.all_passed {
         format!("{}", "PASSED".green())

@@ -202,7 +202,7 @@ pub fn budget_status(network: Option<&str>) -> Result<Vec<BudgetStatus>> {
     let history = ce::load_cost_history()?;
     Ok(budgets
         .iter()
-        .filter(|b| network.map_or(true, |n| b.network == n))
+        .filter(|b| network.is_none_or(|n| b.network == n))
         .map(|b| budget_status_for(b, &history))
         .collect())
 }
@@ -459,7 +459,7 @@ pub fn generate_cost_report_from(
 ) -> CostReport {
     let filtered: Vec<&CostHistoryEntry> = history
         .iter()
-        .filter(|e| network.map_or(true, |n| e.estimate.network == n))
+        .filter(|e| network.is_none_or(|n| e.estimate.network == n))
         .collect();
 
     if filtered.is_empty() {

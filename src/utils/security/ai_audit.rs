@@ -3,9 +3,7 @@
 //! Combines static pattern analysis with Claude AI for comprehensive
 //! vulnerability detection with < 15% false positive rate.
 
-use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Security vulnerability with full context.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,8 +156,8 @@ impl SecurityPatterns {
                 // A state write *after* the external call is the CEI violation.
                 // A transfer that happens last is the safe ordering.
                 let mut found_storage_after = false;
-                for j in (i + 1)..std::cmp::min(i + 10, lines.len()) {
-                    let candidate = lines[j].trim();
+                for candidate in &lines[(i + 1)..std::cmp::min(i + 10, lines.len())] {
+                    let candidate = candidate.trim();
                     if candidate.contains("storage") && candidate.contains("set") {
                         found_storage_after = true;
                         break;
@@ -199,10 +197,10 @@ impl SecurityPatterns {
                 {
                     // Look for require_auth in next 20 lines
                     let mut has_auth = false;
-                    for j in (i + 1)..std::cmp::min(i + 20, lines.len()) {
+                    for line_j in &lines[(i + 1)..std::cmp::min(i + 20, lines.len())] {
                         // Ignore comments: a line reading `// Missing
                         // require_auth() check` must not satisfy the check.
-                        let code_only = lines[j].split("//").next().unwrap_or(lines[j]);
+                        let code_only = line_j.split("//").next().unwrap_or(line_j);
                         if code_only.contains("require_auth") {
                             has_auth = true;
                             break;
@@ -322,8 +320,10 @@ impl SecurityPatterns {
             if line.contains("persistent()") && line.contains("set") {
                 // Look for extend_ttl in nearby lines
                 let mut has_ttl = false;
-                for j in std::cmp::max(0, i.saturating_sub(5))..std::cmp::min(i + 5, lines.len()) {
-                    if lines[j].contains("extend_ttl") {
+                for nearby in
+                    &lines[std::cmp::max(0, i.saturating_sub(5))..std::cmp::min(i + 5, lines.len())]
+                {
+                    if nearby.contains("extend_ttl") {
                         has_ttl = true;
                         break;
                     }

@@ -135,7 +135,7 @@ fn run_health_probes(contract_id: &str, network: &str) -> Vec<HealthProbe> {
         .unwrap_or_default()
         .into_iter()
         .filter(|r| r.contract_id.as_deref() == Some(contract_id) && r.network == network)
-        .last();
+        .next_back();
     let (deploy_status, deploy_msg) = match &last_deploy {
         Some(r) if r.status == deploy_history::DeployStatus::Success => (
             ContractHealthStatus::Healthy,

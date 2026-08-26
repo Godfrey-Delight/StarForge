@@ -427,35 +427,34 @@ pub fn analyze_question(question: &str) -> QuestionAnalysis {
     let lower = question.to_lowercase();
     let tokens = tokenize(question);
 
-    let intent = if lower.starts_with("how")
-        || lower.starts_with("what do i")
-        || lower.contains("steps to")
-    {
-        QuestionIntent::HowTo
-    } else if lower.starts_with("what is")
-        || lower.starts_with("what are")
-        || lower.starts_with("what's")
-    {
-        QuestionIntent::WhatIs
-    } else if lower.contains("error")
-        || lower.contains("fail")
-        || lower.contains("not work")
-        || lower.contains("fix")
-        || lower.contains("problem")
-        || lower.contains("issue")
-    {
-        QuestionIntent::Troubleshooting
-    } else if lower.starts_with("why") || lower.contains("reason") {
-        QuestionIntent::Why
-    } else if lower.contains(" vs ")
-        || lower.contains("difference")
-        || lower.contains("compare")
-        || lower.contains("better")
-    {
-        QuestionIntent::Comparison
-    } else {
-        QuestionIntent::General
-    };
+    let intent =
+        if lower.starts_with("how") || lower.starts_with("what do i") || lower.contains("steps to")
+        {
+            QuestionIntent::HowTo
+        } else if lower.starts_with("what is")
+            || lower.starts_with("what are")
+            || lower.starts_with("what's")
+        {
+            QuestionIntent::WhatIs
+        } else if lower.contains("error")
+            || lower.contains("fail")
+            || lower.contains("not work")
+            || lower.contains("fix")
+            || lower.contains("problem")
+            || lower.contains("issue")
+        {
+            QuestionIntent::Troubleshooting
+        } else if lower.starts_with("why") || lower.contains("reason") {
+            QuestionIntent::Why
+        } else if lower.contains(" vs ")
+            || lower.contains("difference")
+            || lower.contains("compare")
+            || lower.contains("better")
+        {
+            QuestionIntent::Comparison
+        } else {
+            QuestionIntent::General
+        };
 
     let mut topics = Vec::new();
     for (domain, keywords) in TOPIC_INDEX {
@@ -650,7 +649,7 @@ fn chunk_text(content: &str, chunk_size: usize, overlap: usize) -> Vec<String> {
     if content.is_empty() {
         return vec![];
     }
-    let step = chunk_size.saturating_sub(overlap).max(1);
+    let _step = chunk_size.saturating_sub(overlap).max(1);
     let mut chunks = Vec::new();
     let mut start = 0usize;
     while start < content.len() {
@@ -1111,7 +1110,7 @@ impl DocQaEngine {
         }
 
         let analysis = analyze_question(question);
-        let answer_language = language.unwrap_or_else(|| analysis.language);
+        let answer_language = language.unwrap_or(analysis.language);
 
         let tokens = analysis.tokens.clone();
         let mut hits = self.index.retrieve(&tokens, 6, 1.0);
@@ -1179,7 +1178,7 @@ impl DocQaEngine {
                     language: answer_language,
                     confidence: estimate_confidence(&hits, &analysis),
                     mode: AnswerMode::Generated,
-                    follow_up_suggestions: follow_up_suggestions(&question, &analysis),
+                    follow_up_suggestions: follow_up_suggestions(question, &analysis),
                     latency_ms: started.elapsed().as_millis(),
                 },
                 Err(_) => extractive_answer(question, &hits, answer_language, started),

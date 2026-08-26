@@ -274,9 +274,7 @@ impl SorobanEventStream {
                 .websocket
                 .as_mut()
                 .ok_or_else(|| anyhow::anyhow!("WebSocket connection is not available"))?;
-            websocket
-                .send(Message::Text(request.to_string().into()))
-                .await
+            websocket.send(Message::Text(request.to_string())).await
         };
 
         if let Err(err) = send_result {

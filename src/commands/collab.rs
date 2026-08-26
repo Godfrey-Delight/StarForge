@@ -21,7 +21,7 @@ use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 // ─── Sub-command enum ──────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ fn save_store(store: &CollabStore) -> Result<()> {
     Ok(())
 }
 
-fn record_review(file: &PathBuf, kind: &str) {
+fn record_review(file: &Path, kind: &str) {
     if let Ok(mut store) = load_store() {
         store.reviews.push(ReviewRecord {
             file: file.display().to_string(),

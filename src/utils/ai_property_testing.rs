@@ -9,8 +9,6 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::Path;
 
 use crate::utils::ai_test_assistant as ata;
 
@@ -385,7 +383,7 @@ fn generate_test_code_for_property(
     include_shrink: bool,
 ) -> String {
     let shrink_section = if include_shrink {
-        format!("\n    // Shrink strategy: minimize counterexample to smallest failing input")
+        "\n    // Shrink strategy: minimize counterexample to smallest failing input".to_string()
     } else {
         String::new()
     };
@@ -395,7 +393,7 @@ fn generate_test_code_for_property(
         .filter(|inv| {
             prop.target_function
                 .as_ref()
-                .map_or(false, |f| inv.functions_affected.contains(f))
+                .is_some_and(|f| inv.functions_affected.contains(f))
         })
         .map(|inv| format!("    // Invariant: {} — {}", inv.name, inv.expression))
         .collect();

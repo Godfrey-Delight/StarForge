@@ -3,7 +3,7 @@
 //! Provides AI-driven automation for deployment processes, including
 //! pre-deployment checks, automated testing, and deployment execution.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::path::Path;
@@ -416,7 +416,7 @@ pub struct AutomatedTestRunner;
 
 impl AutomatedTestRunner {
     /// Run automated tests on the contract.
-    pub fn run_tests(wasm_path: &str) -> Result<AutomatedTestingResult> {
+    pub fn run_tests(_wasm_path: &str) -> Result<AutomatedTestingResult> {
         // Simulated test results
         let test_results = vec![
             TestResult {
@@ -475,7 +475,7 @@ impl DeploymentExecutor {
             status: "success".to_string(),
             contract_id: Some(format!(
                 "C{}",
-                &hex::encode(&sha2::Sha256::digest(&wasm_bytes))[..56]
+                &hex::encode(sha2::Sha256::digest(&wasm_bytes))[..56]
             )),
             transaction_hash: Some(format!("tx_{}", uuid::Uuid::new_v4())),
             gas_used,

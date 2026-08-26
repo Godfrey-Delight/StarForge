@@ -298,7 +298,10 @@ fn argon2_from_params(params: &Params) -> Argon2<'_> {
     Argon2::from(params.clone())
 }
 
-fn parse_encrypted_bundle(bundle: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Option<KdfOptions>)> {
+/// (salt, nonce, ciphertext, KDF params if the bundle encodes non-default ones)
+type EncryptedBundle = (Vec<u8>, Vec<u8>, Vec<u8>, Option<KdfOptions>);
+
+fn parse_encrypted_bundle(bundle: &str) -> Result<EncryptedBundle> {
     let parts: Vec<&str> = bundle.split(':').collect();
     match parts.len() {
         3 => {

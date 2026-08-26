@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::utils::config;
 
@@ -249,7 +249,7 @@ pub fn learn_preferences(store: &mut FeedbackStore) {
                 CorrectionCategory::Performance => PreferenceType::PerformancePriority,
                 _ => continue,
             };
-            let map = pref_counts.entry(pref_type).or_insert_with(HashMap::new);
+            let map = pref_counts.entry(pref_type).or_default();
             *map.entry(correction.corrected_output.clone()).or_insert(0) += 1;
         }
     }

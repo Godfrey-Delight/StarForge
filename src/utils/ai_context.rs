@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,7 +248,7 @@ impl AIContextManager {
                 if path.is_dir()
                     && path
                         .file_name()
-                        .map_or(false, |n| n == "contracts" || n == "src")
+                        .is_some_and(|n| n == "contracts" || n == "src")
                 {
                     if let Ok(contract_items) = collect_rust_files_sync(&path, &self.config) {
                         items.extend(contract_items);
@@ -391,7 +390,7 @@ fn collect_rust_files_sync(
         let entry = entry?;
         let path = entry.path();
 
-        if path.is_file() && path.extension().map_or(false, |e| e == "rs") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "rs") {
             if let Ok(metadata) = std::fs::metadata(&path) {
                 if metadata.len() <= config.max_file_size_bytes {
                     if let Ok(content) = std::fs::read_to_string(&path) {

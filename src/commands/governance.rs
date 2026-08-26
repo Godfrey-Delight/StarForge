@@ -1,6 +1,4 @@
-use crate::utils::governance::{
-    self, DashboardSummary, GovernanceConfig, GovernanceProposal, VoteChoice,
-};
+use crate::utils::governance::{self, DashboardSummary, GovernanceProposal, VoteChoice};
 use crate::utils::{config, confirmation, horizon, print as p};
 use anyhow::Result;
 use clap::{Args, Subcommand};

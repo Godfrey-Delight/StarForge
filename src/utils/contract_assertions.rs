@@ -197,7 +197,7 @@ pub fn assert_storage_numeric(
     let actual = match actual_val
         .as_i64()
         .map(i128::from)
-        .or_else(|| actual_val.as_u64().map(|u| i128::from(u)))
+        .or_else(|| actual_val.as_u64().map(i128::from))
     {
         Some(n) => n,
         None => {

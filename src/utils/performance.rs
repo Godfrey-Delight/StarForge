@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::path::PathBuf;
+use std::time::Instant;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractMetrics {
@@ -369,7 +369,7 @@ pub fn analyze_bottlenecks(contract_id: &str) -> Result<BottleneckAnalysis> {
             .or_insert(record.gas_used);
     }
 
-    let total_gas: u64 = gas_history.iter().map(|r| r.gas_used).sum();
+    let _total_gas: u64 = gas_history.iter().map(|r| r.gas_used).sum();
     let total_executions = gas_history.len() as f64;
 
     let bottleneck_operations: Vec<String> = operation_frequencies

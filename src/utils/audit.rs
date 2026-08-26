@@ -133,12 +133,12 @@ pub fn get_audit_report(start_time: Option<&str>, end_time: Option<&str>) -> Res
         .iter()
         .filter(|e| {
             if let Some(start) = start_time {
-                if e.timestamp < start.to_string() {
+                if e.timestamp.as_str() < start {
                     return false;
                 }
             }
             if let Some(end) = end_time {
-                if e.timestamp > end.to_string() {
+                if e.timestamp.as_str() > end {
                     return false;
                 }
             }
@@ -189,6 +189,10 @@ pub fn export_audit_log_csv(entries: &[AuditEntry]) -> String {
     csv
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 pub fn log_approval_action(
     action: &str,
     actor: &str,

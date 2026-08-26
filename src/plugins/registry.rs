@@ -1,5 +1,4 @@
-use crate::plugins::manifest;
-use crate::utils::config::{self, Config};
+use crate::utils::config::Config;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -306,7 +305,7 @@ pub fn install_plugin(
     source: &str,
     starforge_version: &str,
     plugin_version: &str,
-    description: &str,
+    _description: &str,
     commands: Vec<RegisteredCommand>,
 ) -> Result<()> {
     if !library_path.exists() {

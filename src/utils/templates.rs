@@ -842,11 +842,7 @@ pub async fn load_registry() -> Result<TemplateRegistry> {
             if let Ok(modified) = metadata.modified() {
                 use std::time::{Duration, SystemTime};
                 let ttl = Duration::from_secs(24 * 60 * 60); // 24 hours
-                if SystemTime::now()
-                    .duration_since(modified)
-                    .unwrap_or_else(|_| ttl)
-                    < ttl
-                {
+                if SystemTime::now().duration_since(modified).unwrap_or(ttl) < ttl {
                     let contents = fs::read_to_string(&cache_path).with_context(|| {
                         format!("Failed to read cached registry at {}", cache_path.display())
                     })?;
@@ -1200,6 +1196,9 @@ pub async fn get_template_by_name_and_version(
     }
 }
 
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn semver_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     let parse_version = |v: &str| {
         v.strip_prefix('v')
@@ -1423,6 +1422,10 @@ pub async fn publish_template(
 
 /// Like `publish_template` but also records optional CLI version constraints.
 /// Install a template from a directory or `.zip` archive into the local registry.
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 pub async fn install_template_package(
     package_path: &Path,
     name: String,
@@ -1450,6 +1453,10 @@ pub async fn install_template_package(
     .await
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 pub async fn publish_template_versioned(
     template_path: &Path,
     name: String,
@@ -1501,16 +1508,15 @@ pub async fn publish_template_versioned(
     copy_dir_recursive(&source_root, &dest)?;
 
     let created_at = Utc::now().to_rfc3339();
-    let mut changelog: Vec<ChangelogEntry> = Vec::new();
-    changelog.push(ChangelogEntry {
+    let changelog = vec![ChangelogEntry {
         version: version.clone(),
         date: Utc::now().format("%Y-%m-%d").to_string(),
         notes: "Initial release".to_string(),
-    });
+    }];
 
     let entry = TemplateEntry {
         name: name.clone(),
-        changelog: None,
+        changelog: Some(changelog),
         repository: None,
         security_review: None,
         version: version.clone(),

@@ -4,9 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
 
 // ── Core Data Structures ─────────────────────────────────────────────────────
 
@@ -328,8 +325,8 @@ impl TestOptimizer {
             .iter()
             .cloned()
             .partition(|t| t.resource_profile.io_intensity > 0.6);
-        let cpu_bound: Vec<OptimizedTestCase> = vec![];
-        let memory_bound: Vec<OptimizedTestCase> = vec![];
+        let _cpu_bound: Vec<OptimizedTestCase> = vec![];
+        let _memory_bound: Vec<OptimizedTestCase> = vec![];
         let general: Vec<OptimizedTestCase> = vec![];
         let (cpu_only, general): (Vec<_>, Vec<_>) = general
             .into_iter()
@@ -419,7 +416,7 @@ impl TestOptimizer {
 
         let mut score = stability * 60.0 + transition_ratio * 40.0;
 
-        if failure_rate < 0.1 || failure_rate > 0.9 {
+        if !(0.1..=0.9).contains(&failure_rate) {
             score *= 0.3;
         }
 

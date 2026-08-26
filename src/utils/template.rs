@@ -1,4 +1,4 @@
-use crate::utils::{print as p, registry, template_analytics, templates};
+use crate::utils::{print as p, template_analytics, templates};
 use anyhow::Result;
 use clap::Subcommand;
 use std::path::PathBuf;
@@ -277,6 +277,10 @@ pub async fn handle(cmd: TemplateCommands) -> Result<()> {
     }
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 async fn import(
     path: PathBuf,
     name: Option<String>,
@@ -307,6 +311,10 @@ async fn import(
     Ok(())
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 async fn publish(
     path: PathBuf,
     name: Option<String>,

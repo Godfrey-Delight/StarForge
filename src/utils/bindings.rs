@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::path::Path;
 use stellar_xdr::curr::{
     Limited, Limits, ReadXdr, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecUdtEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionV0,
+    ScSpecUdtStructV0,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,7 +337,13 @@ fn generate_rust(metadata: &ContractMetadata) -> String {
         let params = function
             .inputs
             .iter()
-            .map(|input| format!("{}: {}", sanitize_ident(&input.name), rust_type(&input.type_name)))
+            .map(|input| {
+                format!(
+                    "{}: {}",
+                    sanitize_ident(&input.name),
+                    rust_type(&input.type_name)
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ");
         let return_type = function
@@ -346,7 +352,7 @@ fn generate_rust(metadata: &ContractMetadata) -> String {
             .map(rust_type)
             .unwrap_or_else(|| "()".to_string());
         let comma = if params.is_empty() { "" } else { ", " };
-        
+
         out.push_str(&format!(
             "\tpub fn {rust_name}(&self{comma}{params}) -> Result<{return_type}> {{\n\
              \t\tlet mut cmd = Command::new(\"starforge\");\n\
@@ -385,7 +391,7 @@ fn generate_rust(metadata: &ContractMetadata) -> String {
          \t{\n\
          \t\tresult.parse().context(\"Failed to parse result\")\n\
          \t}\n\n\
-         }\n\n"
+         }\n\n",
     );
 
     for struct_def in &metadata.structs {
@@ -741,9 +747,12 @@ fn rust_type(type_name: &str) -> String {
         "I256" => "String".to_string(),
         _ => {
             // Handle complex types like Option<T>, Result<T, E>, Vec<T>, etc.
-            if type_name.starts_with("Option<") || type_name.starts_with("Result<") || 
-               type_name.starts_with("Vec<") || type_name.starts_with("Map<") ||
-               type_name.starts_with("BytesN<") {
+            if type_name.starts_with("Option<")
+                || type_name.starts_with("Result<")
+                || type_name.starts_with("Vec<")
+                || type_name.starts_with("Map<")
+                || type_name.starts_with("BytesN<")
+            {
                 type_name.to_string()
             } else {
                 // Assume it's a custom type
@@ -766,12 +775,12 @@ fn ts_type(type_name: &str) -> String {
         _ => {
             // Handle complex types
             if type_name.starts_with("Option<") {
-                let inner = &type_name[7..type_name.len()-1]; // Remove "Option<>"
+                let inner = &type_name[7..type_name.len() - 1]; // Remove "Option<>"
                 format!("{} | null", ts_type(inner))
             } else if type_name.starts_with("Result<") {
                 "any".to_string()
             } else if type_name.starts_with("Vec<") {
-                let inner = &type_name[4..type_name.len()-1]; // Remove "Vec<>"
+                let inner = &type_name[4..type_name.len() - 1]; // Remove "Vec<>"
                 format!("Array<{}>", ts_type(inner))
             } else if type_name.starts_with("Map<") {
                 "Record<string, any>".to_string()
@@ -801,12 +810,12 @@ fn python_type(type_name: &str) -> String {
         _ => {
             // Handle complex types
             if type_name.starts_with("Option<") {
-                let inner = &type_name[7..type_name.len()-1]; // Remove "Option<>"
+                let inner = &type_name[7..type_name.len() - 1]; // Remove "Option<>"
                 format!("Optional[{}]", python_type(inner))
             } else if type_name.starts_with("Result<") {
                 "Any".to_string()
             } else if type_name.starts_with("Vec<") {
-                let inner = &type_name[4..type_name.len()-1]; // Remove "Vec<>"
+                let inner = &type_name[4..type_name.len() - 1]; // Remove "Vec<>"
                 format!("List[{}]", python_type(inner))
             } else if type_name.starts_with("Map<") {
                 "Dict[str, Any]".to_string()
@@ -842,12 +851,12 @@ fn go_type(type_name: &str) -> String {
             // Handle complex types
             if type_name.starts_with("Option<") {
                 // In Go, we can use pointer types for optional
-                let inner = &type_name[7..type_name.len()-1]; // Remove "Option<>"
+                let inner = &type_name[7..type_name.len() - 1]; // Remove "Option<>"
                 format!("*{}", go_type(inner))
             } else if type_name.starts_with("Result<") {
                 "interface{}".to_string()
             } else if type_name.starts_with("Vec<") {
-                let inner = &type_name[4..type_name.len()-1]; // Remove "Vec<>"
+                let inner = &type_name[4..type_name.len() - 1]; // Remove "Vec<>"
                 format!("[]{}", go_type(inner))
             } else if type_name.starts_with("Map<") {
                 "map[string]interface{}".to_string()
