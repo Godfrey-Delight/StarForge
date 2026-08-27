@@ -2083,6 +2083,9 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            changelog: None,
+            repository: None,
+            security_review: None,
         }
     }
 
@@ -2417,6 +2420,9 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            changelog: None,
+            repository: None,
+            security_review: None,
         });
 
         // Test name search
@@ -2468,6 +2474,9 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            changelog: None,
+            repository: None,
+            security_review: None,
         };
 
         let dest = tmp.path().join(&entry.name);
@@ -2521,6 +2530,9 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            changelog: None,
+            repository: None,
+            security_review: None,
         }
     }
 
