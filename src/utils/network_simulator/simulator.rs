@@ -737,6 +737,7 @@ impl Default for NetworkSimulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::network_simulator::failure::FailureMode;
 
     #[test]
     fn new_simulator_has_default_state() {

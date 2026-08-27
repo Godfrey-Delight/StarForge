@@ -1392,6 +1392,7 @@ pub fn load_or_create_install_id(db: &Database) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn db() -> Database {
         Database::open_in_memory().unwrap()

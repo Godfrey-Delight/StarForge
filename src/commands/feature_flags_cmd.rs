@@ -964,6 +964,7 @@ fn format_rule(rule: &SegmentRule) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::feature_flags::MetricKind;
 
     #[test]
     fn format_rule_user_in_list() {

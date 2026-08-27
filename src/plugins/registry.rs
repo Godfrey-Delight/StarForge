@@ -311,7 +311,7 @@ pub fn install_plugin(
     source: &str,
     starforge_version: &str,
     plugin_version: &str,
-    _description: &str,
+    description: &str,
     commands: Vec<RegisteredCommand>,
 ) -> Result<()> {
     if !library_path.exists() {
