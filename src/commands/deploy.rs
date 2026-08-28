@@ -941,42 +941,161 @@ fn emit_deployment_monitoring_alert(network: &str, contract_id: Option<&str>) ->
     Ok(())
 }
 
+/// Why an automatic rollback was, or wasn't, triggered for a failed deploy.
+/// Kept separate from `handle_failed_deploy_rollback`'s side effects (history
+/// writes, printing, notifying) so the decision itself is directly
+/// unit-testable without touching `~/.starforge`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RollbackDecision {
+    /// `--no-auto-rollback` was passed; no action taken.
+    Disabled,
+    /// Nothing to revert to — this was the first deployment on this network.
+    NoPreviousDeployment,
+    /// Roll back to the previous successful deployment.
+    RollBackTo,
+}
+
+fn decide_rollback(disabled: bool, previous: &Option<DeployRecord>) -> RollbackDecision {
+    if disabled {
+        RollbackDecision::Disabled
+    } else if previous.is_none() {
+        RollbackDecision::NoPreviousDeployment
+    } else {
+        RollbackDecision::RollBackTo
+    }
+}
+
+/// On a failed `--execute`, automatically record a rollback to the previous
+/// successful deployment (unless disabled), verify the rollback record's
+/// consistency against the deployment it claims to restore, print the
+/// on-chain revert command, and notify — covering the automatic-trigger,
+/// verification, and notification legs of #383's rollback automation.
+/// (Rollback *history* itself was already implemented in
+/// `deploy_history::record_rollback`, called from here.)
 fn handle_failed_deploy_rollback(
     disabled: bool,
     previous: Option<DeployRecord>,
     wallet: &str,
     network: &str,
 ) -> Result<()> {
-    if disabled {
-        p::info("Automatic rollback disabled (--no-auto-rollback). No revert performed.");
-        return Ok(());
+    match decide_rollback(disabled, &previous) {
+        RollbackDecision::Disabled => {
+            p::info("Automatic rollback disabled (--no-auto-rollback). No revert performed.");
+            notifications::send_rollback_notification(
+                network,
+                wallet,
+                None,
+                None,
+                None,
+                "automatic rollback disabled via --no-auto-rollback",
+                None,
+            )
+        }
+        RollbackDecision::NoPreviousDeployment => {
+            p::warn("No previous successful deployment on this network to roll back to.");
+            notifications::send_rollback_notification(
+                network,
+                wallet,
+                None,
+                None,
+                None,
+                "no previous successful deployment on this network",
+                None,
+            )
+        }
+        RollbackDecision::RollBackTo => {
+            // `decide_rollback` only returns `RollBackTo` when `previous` is `Some`.
+            let target =
+                previous.expect("RollBackTo decision guarantees a previous deployment");
+
+            let rollback_id = deploy_history::record_rollback(&target, wallet)?;
+            let verification = deploy_history::verify_rollback(&rollback_id)?;
+
+            p::separator();
+            p::warn("Automatic rollback engaged — reverting to last successful deployment:");
+            p::kv("Rolled back to", &target.id[..8.min(target.id.len())]);
+            p::kv("Rollback record", &rollback_id[..8.min(rollback_id.len())]);
+            if verification.passed {
+                p::success(
+                    "Rollback verification passed — record matches the restored deployment.",
+                );
+            } else {
+                p::error(&format!(
+                    "Rollback verification FAILED: {}",
+                    verification
+                        .reason
+                        .as_deref()
+                        .unwrap_or("unknown mismatch")
+                ));
+            }
+
+            if let Some(contract_id) = target.contract_id.as_deref() {
+                println!();
+                p::info("Run this to revert the contract on-chain:");
+                println!(
+                    "  {}",
+                    format!(
+                        "stellar contract invoke --id {} --source {} --network {} -- upgrade --new-wasm-hash {}",
+                        contract_id, wallet, network, target.wasm_hash
+                    )
+                    .cyan()
+                );
+            }
+            p::separator();
+
+            notifications::send_rollback_notification(
+                network,
+                wallet,
+                Some(rollback_id.as_str()),
+                Some(target.id.as_str()),
+                target.contract_id.as_deref(),
+                "deployment failed",
+                Some(verification.passed),
+            )
+        }
+    }
+}
+
+#[cfg(test)]
+mod rollback_automation_tests {
+    use super::*;
+
+    fn sample_record() -> DeployRecord {
+        DeployRecord::new("v1.wasm", "hash-v1", "testnet", "alice", None)
     }
 
-    let Some(target) = previous else {
-        p::warn("No previous successful deployment on this network to roll back to.");
-        return Ok(());
-    };
-
-    let rollback_id = deploy_history::record_rollback(&target, wallet)?;
-    p::separator();
-    p::warn("Automatic rollback engaged — reverting to last successful deployment:");
-    p::kv("Rolled back to", &target.id[..8.min(target.id.len())]);
-    p::kv("Rollback record", &rollback_id[..8.min(rollback_id.len())]);
-
-    if let Some(contract_id) = target.contract_id.as_deref() {
-        println!();
-        p::info("Run this to revert the contract on-chain:");
-        println!(
-            "  {}",
-            format!(
-                "stellar contract invoke --id {} --source {} --network {} -- upgrade --new-wasm-hash {}",
-                contract_id, wallet, network, target.wasm_hash
-            )
-            .cyan()
+    #[test]
+    fn disabled_flag_wins_even_with_a_previous_deployment() {
+        let previous = Some(sample_record());
+        assert_eq!(
+            decide_rollback(true, &previous),
+            RollbackDecision::Disabled
         );
     }
-    p::separator();
-    Ok(())
+
+    #[test]
+    fn rollback_skipped_when_nothing_to_revert_to() {
+        assert_eq!(
+            decide_rollback(false, &None),
+            RollbackDecision::NoPreviousDeployment
+        );
+    }
+
+    #[test]
+    fn rollback_triggered_when_enabled_and_a_previous_deployment_exists() {
+        let previous = Some(sample_record());
+        assert_eq!(
+            decide_rollback(false, &previous),
+            RollbackDecision::RollBackTo
+        );
+    }
+
+    #[test]
+    fn disabled_takes_precedence_over_a_missing_target_too() {
+        // Boundary: both "disabled" and "no target" hold simultaneously —
+        // an explicit operator opt-out must still win.
+        assert_eq!(decide_rollback(true, &None), RollbackDecision::Disabled);
+    }
 }
 
 #[cfg(test)]
