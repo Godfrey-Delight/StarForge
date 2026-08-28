@@ -64,7 +64,10 @@ fn redact_secrets_impl(input: &str) -> String {
 
     // 7. Sensitive query parameters in URLs (e.g., ?apiKey=xyz&secret=123)
     static URL_QUERY_PARAM_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"([?&](?:apiKey|api_key|secret|token|passphrase|access_token|private_key)=)([^&\s]+)").unwrap()
+        Regex::new(
+            r"([?&](?:apiKey|api_key|secret|token|passphrase|access_token|private_key)=)([^&\s]+)",
+        )
+        .unwrap()
     });
 
     // Apply regex replacements sequentially
@@ -122,7 +125,8 @@ mod tests {
 
     #[test]
     fn test_mnemonic_redaction() {
-        let mnemonic_12 = "army vanish defense carry reward write custom cargo adult melt verify polar";
+        let mnemonic_12 =
+            "army vanish defense carry reward write custom cargo adult melt verify polar";
         let text = format!("Seed phrase is: {}", mnemonic_12);
         let redacted = redact_secrets(&text);
         assert!(!redacted.contains("army vanish"));
@@ -144,7 +148,8 @@ mod tests {
         let redacted = redact_secrets(url);
         assert!(!redacted.contains("hunter2"));
         assert!(!redacted.contains("abcdef123456"));
-        assert!(redacted.contains("https://[REDACTED]:[REDACTED]@rpc.example.com/soroban?apiKey=[REDACTED]"));
+        assert!(redacted
+            .contains("https://[REDACTED]:[REDACTED]@rpc.example.com/soroban?apiKey=[REDACTED]"));
     }
 
     #[test]
@@ -178,7 +183,8 @@ mod tests {
         assert_eq!(redact_secrets(short_phrase), short_phrase);
 
         // Non-bip39 words in 12-word length sentence
-        let regular_sentence = "this is just a regular sentence with twelve words that are not mnemonic";
+        let regular_sentence =
+            "this is just a regular sentence with twelve words that are not mnemonic";
         assert_eq!(redact_secrets(regular_sentence), regular_sentence);
 
         // String with null bytes and special chars

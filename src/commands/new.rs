@@ -1223,9 +1223,7 @@ async fn scaffold_from_marketplace(name: String, template_name: String) -> Resul
 }
 
 fn copy_template_contents(src: &Path, dst: &Path, project_name: &str) -> Result<()> {
-    let mut entries: Vec<_> = fs::read_dir(src)?
-        .filter_map(|e| e.ok())
-        .collect();
+    let mut entries: Vec<_> = fs::read_dir(src)?.filter_map(|e| e.ok()).collect();
 
     entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
@@ -1305,9 +1303,21 @@ mod determinism_tests {
     fn create_template_dir(base: &Path) {
         fs::create_dir_all(base.join("src")).unwrap();
         fs::create_dir_all(base.join("tests")).unwrap();
-        fs::write(base.join("Cargo.toml"), "[package]\nname = \"{{PROJECT_NAME}}\"\n").unwrap();
-        fs::write(base.join("src/lib.rs"), "pub fn hello() -> &'static str { \"{{PROJECT_NAME_PASCAL}}\" }\n").unwrap();
-        fs::write(base.join("tests/test.rs"), "#[test]\nfn it_works() {{ println!(\"{{PROJECT_NAME_SNAKE}}\"); }}\n").unwrap();
+        fs::write(
+            base.join("Cargo.toml"),
+            "[package]\nname = \"{{PROJECT_NAME}}\"\n",
+        )
+        .unwrap();
+        fs::write(
+            base.join("src/lib.rs"),
+            "pub fn hello() -> &'static str { \"{{PROJECT_NAME_PASCAL}}\" }\n",
+        )
+        .unwrap();
+        fs::write(
+            base.join("tests/test.rs"),
+            "#[test]\nfn it_works() {{ println!(\"{{PROJECT_NAME_SNAKE}}\"); }}\n",
+        )
+        .unwrap();
         fs::write(base.join("README.md"), "# {{PROJECT_NAME}}\n").unwrap();
     }
 
@@ -1375,7 +1385,10 @@ mod determinism_tests {
         copy_template_contents(&template_dir, &out, "hello-world").unwrap();
 
         let content = fs::read_to_string(out.join("src/lib.rs")).unwrap();
-        assert_eq!(content, "name=hello-world snake=hello_world Pascal=HelloWorld");
+        assert_eq!(
+            content,
+            "name=hello-world snake=hello_world Pascal=HelloWorld"
+        );
     }
 
     /// Failure case: non-existent source path returns an error.
@@ -1457,7 +1470,12 @@ mod determinism_tests {
             if path.is_dir() {
                 walk_dir(base, &path, out);
             } else {
-                let rel = path.strip_prefix(base).unwrap().to_str().unwrap().to_string();
+                let rel = path
+                    .strip_prefix(base)
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 // Normalize to forward slashes for cross-platform comparison.
                 let rel = rel.replace('\\', "/");
                 out.push(rel);

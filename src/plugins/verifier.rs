@@ -147,7 +147,10 @@ pub fn verify_plugin_signature(
             status: VerificationStatus::Failed,
             publisher,
             publisher_key: Some(key_str.to_string()),
-            detail: Some(format!("Library file not found at {}", library_path.display())),
+            detail: Some(format!(
+                "Library file not found at {}",
+                library_path.display()
+            )),
         };
     }
 

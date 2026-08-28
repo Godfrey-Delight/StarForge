@@ -230,9 +230,15 @@ pub struct InstalledPlugin {
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
-    /// Plugin summary from `Plugin::description()` at install time.
+    /// Verified publisher handle/identity, if verified
     #[serde(default)]
-    pub description: String,
+    pub publisher: Option<String>,
+    /// Verified publisher public key, if signed
+    #[serde(default)]
+    pub publisher_key: Option<String>,
+    /// Verification status
+    #[serde(default)]
+    pub verification_status: crate::plugins::verifier::VerificationStatus,
 }
 
 /// Resolve the description to display for a plugin: prefer the registry's
@@ -257,46 +263,6 @@ pub fn plugin_list_entries(reg: &PluginRegistry) -> Vec<InstalledPlugin> {
         .map(|mut p| {
             p.description = resolve_plugin_description(&p);
             p
-        })
-        .collect()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PluginListEntry {
-    pub name: String,
-    pub path: String,
-    pub source: String,
-    pub trust: String,
-    pub starforge_version: String,
-    pub plugin_version: String,
-    pub description: String,
-    pub installed_at: Option<String>,
-    pub commands: Vec<RegisteredCommand>,
-}
-
-pub fn resolve_plugin_description(plugin: &InstalledPlugin) -> String {
-    if !plugin.description.is_empty() {
-        plugin.description.clone()
-    } else if let Some(cmd) = plugin.commands.first() {
-        cmd.description.clone()
-    } else {
-        String::new()
-    }
-}
-
-pub fn plugin_list_entries(reg: &PluginRegistry) -> Vec<PluginListEntry> {
-    reg.plugins
-        .iter()
-        .map(|p| PluginListEntry {
-            name: p.name.clone(),
-            path: p.path.clone(),
-            source: p.source.clone(),
-            trust: p.trust.label().to_string(),
-            starforge_version: p.starforge_version.clone(),
-            plugin_version: p.plugin_version.clone(),
-            description: resolve_plugin_description(p),
-            installed_at: p.installed_at.clone(),
-            commands: p.commands.clone(),
         })
         .collect()
 }
@@ -400,10 +366,12 @@ pub fn install_plugin(
         trust,
         starforge_version: starforge_version.to_string(),
         plugin_version: plugin_version.to_string(),
-        description: String::new(),
+        description: description.to_string(),
         installed_at: Some(now),
         commands,
-        description: description.to_string(),
+        publisher,
+        publisher_key,
+        verification_status,
     });
     reg.plugins.sort_by(|a, b| a.name.cmp(&b.name));
     save_registry(&reg)?;

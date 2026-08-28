@@ -236,6 +236,7 @@ pub fn is_pid_active(pid: u32) -> bool {
 }
 
 /// Concurrency file lock guard.
+#[derive(Debug)]
 pub struct DeploymentLock {
     lock_path: PathBuf,
 }

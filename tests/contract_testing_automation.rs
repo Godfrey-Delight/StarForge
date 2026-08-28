@@ -18,7 +18,7 @@ impl Counter {
 
 fn write_minimal_wasm(path: &std::path::Path) {
     let mut bytes = b"\0asm\x01\0\0\0".to_vec();
-    bytes.extend(std::iter::repeat_n(0u8, 64));
+    bytes.extend(std::iter::repeat(0u8).take(64));
     std::fs::write(path, bytes).unwrap();
 }
 

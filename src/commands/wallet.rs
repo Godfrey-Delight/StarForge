@@ -1233,6 +1233,7 @@ async fn rotate_wallet(
             exported_at: Utc::now().to_rfc3339(),
             wallets: vec![backup_entry_from(&cfg.wallets[wallet_index])],
             recovery_shares: None,
+            integrity_tag: None,
         };
         let snap_tag =
             wallet_import::compute_integrity_tag(&snapshot, wallet_import::BACKUP_HMAC_KEY)
@@ -1462,6 +1463,7 @@ fn export_wallet(
         exported_at: Utc::now().to_rfc3339(),
         wallets: wallets_to_export.clone(),
         recovery_shares: None,
+        integrity_tag: None,
     };
     let export_tag = wallet_import::compute_integrity_tag(&backup, wallet_import::BACKUP_HMAC_KEY)
         .context("Failed to compute integrity tag for wallet backup")?;

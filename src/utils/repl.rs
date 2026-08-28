@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::utils::history::redact_command;
+use anyhow::Result;
 use colored::*;
 use rustyline::completion::{Completer, Pair};
 use rustyline::error::ReadlineError;
@@ -328,7 +328,11 @@ where
         &mut self,
         editor: &Editor<StarForgeHelper, rustyline::history::DefaultHistory>,
     ) -> Result<()> {
-        let entries: Vec<String> = editor.history().iter().map(|entry| entry.to_string()).collect();
+        let entries: Vec<String> = editor
+            .history()
+            .iter()
+            .map(|entry| entry.to_string())
+            .collect();
         for command in entries {
             let command = command.trim();
             if command.is_empty() || command.contains("[REDACTED]") || command.starts_with(':') {

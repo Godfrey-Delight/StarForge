@@ -628,7 +628,7 @@ mod tests {
     #[test]
     fn large_module_warns_but_does_not_block() {
         let mut bytes = valid_wasm();
-        bytes.extend(std::iter::repeat_n(0u8, 200 * 1024));
+        bytes.extend(std::iter::repeat(0u8).take(200 * 1024));
         let checks = run_pre_deployment_checks(&bytes, &DeploymentContext::default());
         let size = checks.iter().find(|c| c.id == "PRE-003").unwrap();
         assert_eq!(size.outcome, Outcome::Warn);

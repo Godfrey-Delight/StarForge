@@ -153,7 +153,6 @@ impl PluginManifest {
     }
 }
 
-
 /// Locate and parse `starforge-plugin.toml` beside the library or in its parent directory.
 pub fn load_manifest_for_library(library_path: &Path) -> Result<Option<PluginManifest>> {
     let mut candidates: Vec<PathBuf> = Vec::new();
@@ -277,6 +276,9 @@ mod tests {
             starforge_version_min: None,
             starforge_version_max: None,
             required_capabilities: vec![],
+            publisher: None,
+            publisher_key: None,
+            signature: None,
         };
         assert!(manifest.validate().is_ok());
     }
@@ -298,6 +300,9 @@ mod tests {
             starforge_version_min: None,
             starforge_version_max: None,
             required_capabilities: vec![],
+            publisher: None,
+            publisher_key: None,
+            signature: None,
         };
         assert!(manifest.validate().is_err());
     }

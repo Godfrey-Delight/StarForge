@@ -147,7 +147,8 @@ fn install(name: String, path: Option<PathBuf>, source: Option<String>, force: b
     let plugin_manifest = manifest::require_compatible_manifest(&lib_path, &name)?;
 
     // Verify publisher signature and trust metadata
-    let ver_res = crate::plugins::verifier::verify_plugin_signature(&lib_path, &plugin_manifest, &config);
+    let ver_res =
+        crate::plugins::verifier::verify_plugin_signature(&lib_path, &plugin_manifest, &config);
     match ver_res.status {
         crate::plugins::verifier::VerificationStatus::InvalidSignature
         | crate::plugins::verifier::VerificationStatus::MalformedKey
@@ -170,7 +171,9 @@ fn install(name: String, path: Option<PathBuf>, source: Option<String>, force: b
                     "Publisher key '{}' is not in the trusted publishers list.",
                     ver_res.publisher_key.as_deref().unwrap_or("")
                 ));
-                anyhow::bail!("Refusing to install plugin from untrusted publisher without --force");
+                anyhow::bail!(
+                    "Refusing to install plugin from untrusted publisher without --force"
+                );
             } else {
                 p::warn("Installing plugin from untrusted publisher because --force was specified");
             }
@@ -387,7 +390,10 @@ fn list(json: bool) -> Result<()> {
             ]
         })
         .collect();
-    p::table(&["Name", "Version", "Trust", "Verification", "Description"], &plugin_rows);
+    p::table(
+        &["Name", "Version", "Trust", "Verification", "Description"],
+        &plugin_rows,
+    );
 
     let command_rows: Vec<Vec<String>> = entries
         .iter()
@@ -717,9 +723,9 @@ fn update(name: Option<String>, yes: bool) -> Result<()> {
                             &pl.plugin_version,
                             &description,
                             cmds,
-                            pub_name,
-                            pub_key,
-                            v_status,
+                            pl.publisher.clone(),
+                            pl.publisher_key.clone(),
+                            pl.verification_status.clone(),
                         )?;
                         p::success(&format!(
                             "  '{}' library on disk is newer — registry refreshed.",
@@ -805,9 +811,18 @@ fn verify(name: Option<String>, deep: bool, runtime_check: bool) -> Result<()> {
         let ver_res = manifest::load_manifest_for_library(std::path::Path::new(&pl.path))
             .ok()
             .flatten()
-            .map(|mf| crate::plugins::verifier::verify_plugin_signature(std::path::Path::new(&pl.path), &mf, &config));
+            .map(|mf| {
+                crate::plugins::verifier::verify_plugin_signature(
+                    std::path::Path::new(&pl.path),
+                    &mf,
+                    &config,
+                )
+            });
 
-        let ver_status = ver_res.as_ref().map(|r| r.status.clone()).unwrap_or(pl.verification_status.clone());
+        let ver_status = ver_res
+            .as_ref()
+            .map(|r| r.status.clone())
+            .unwrap_or(pl.verification_status.clone());
         let ver_ok = match ver_status {
             crate::plugins::verifier::VerificationStatus::Verified
             | crate::plugins::verifier::VerificationStatus::Unsigned => true,
@@ -865,7 +880,10 @@ fn verify(name: Option<String>, deep: bool, runtime_check: bool) -> Result<()> {
             p::warn(&format!(
                 "Verification status is {}: {}",
                 ver_status.label(),
-                ver_res.as_ref().and_then(|r| r.detail.clone()).unwrap_or_default()
+                ver_res
+                    .as_ref()
+                    .and_then(|r| r.detail.clone())
+                    .unwrap_or_default()
             ));
         }
     }
@@ -1086,7 +1104,11 @@ fn audit_plugin(plugin: &registry::InstalledPlugin, runtime_check: bool) -> Audi
             }
 
             let config = config::load().unwrap_or_default();
-            let ver_res = crate::plugins::verifier::verify_plugin_signature(library_path, &plugin_manifest, &config);
+            let ver_res = crate::plugins::verifier::verify_plugin_signature(
+                library_path,
+                &plugin_manifest,
+                &config,
+            );
             match ver_res.status {
                 crate::plugins::verifier::VerificationStatus::Verified => {
                     checks.push(AuditCheck {
@@ -1123,7 +1145,8 @@ fn audit_plugin(plugin: &registry::InstalledPlugin, runtime_check: bool) -> Audi
                     checks.push(AuditCheck {
                         name: "signature",
                         severity: AuditSeverity::Fail,
-                        message: "Cryptographic signature mismatch (tampered library or wrong key)".into(),
+                        message: "Cryptographic signature mismatch (tampered library or wrong key)"
+                            .into(),
                     });
                 }
                 crate::plugins::verifier::VerificationStatus::MalformedKey => {

@@ -534,40 +534,6 @@ fn extract_external_calls(source: &str) -> Vec<String> {
     calls
 }
 
-pub fn generate_edge_case_descriptions(func: &FunctionInfo) -> Vec<String> {
-    let mut cases = vec![
-        "Zero address / null argument".to_string(),
-        "Maximum value boundary".to_string(),
-        "Minimum value boundary".to_string(),
-        "Unauthorized caller".to_string(),
-        "Empty collection / zero length".to_string(),
-        "Reentrancy / repeated invocation".to_string(),
-    ];
-    for param in &func.params {
-        cases.push(format!("Boundary case for parameter {}", param.name));
-    }
-    cases
-}
-
-pub fn generate_security_checks(func: &FunctionInfo) -> Vec<String> {
-    let mut checks = vec![
-        "Authorization verification".to_string(),
-        "Overflow / underflow guard".to_string(),
-    ];
-    if func.is_mutating {
-        checks.push("State mutation access control".to_string());
-    }
-    checks
-}
-
-pub fn generate_warnings(analysis: &ContractAnalysis) -> Vec<String> {
-    let mut warnings = Vec::new();
-    if analysis.public_functions > 5 || analysis.complex_functions > 10 {
-        warnings.push("High complexity detected in contract functions".to_string());
-    }
-    warnings
-}
-
 pub fn generate_test_priorities(analysis: &ContractAnalysis) -> Vec<TestPrioritySuggestion> {
     let mut suggestions = Vec::new();
 

@@ -29,7 +29,7 @@ fn setup_test_env() -> (TempDir, std::sync::MutexGuard<'static, ()>) {
 fn create_dummy_wasm(dir: &TempDir, name: &str) -> std::path::PathBuf {
     let path = dir.path().join(name);
     let mut bytes = b"\0asm\x01\0\0\0".to_vec();
-    bytes.extend(std::iter::repeat_n(0u8, 128));
+    bytes.extend(std::iter::repeat(0u8).take(128));
     fs::write(&path, bytes).unwrap();
     path
 }

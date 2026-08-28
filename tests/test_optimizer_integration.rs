@@ -12,7 +12,7 @@ use starforge::utils::test_optimizer::*;
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 fn make_optimizer() -> TestOptimizer {
-    TestOptimizer::with_config_dir(PathBuf::from("/tmp/test_opt_integration"))
+    TestOptimizer::with_config_dir(PathBuf::from("/tmp/test_opt_integration")).unwrap()
 }
 
 fn make_history(

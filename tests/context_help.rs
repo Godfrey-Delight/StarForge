@@ -50,7 +50,7 @@ fn help_engine_handles_unknown_command_with_fallback() {
     assert!(help.description.contains("No dedicated help"));
     assert!(help.workflow_suggestions.is_empty());
     assert!(help.flags_and_examples.is_empty());
-    assert!(help.total_items() >= 0);
+    assert_eq!(help.total_items(), 0);
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn help_engine_history_round_trip_via_disk() {
 
     // Bonus: empty history via disk is treated as empty.
     let empty_dir = tempfile::TempDir::new().unwrap();
-    let empty = load_history(&empty_dir.path().to_path_buf()).unwrap();
+    let empty = load_history(empty_dir.path()).unwrap();
     assert!(empty.is_empty());
 }
 
@@ -254,7 +254,7 @@ fn error_quick_fixes_table_contains_required_categories() {
         .collect();
     for required in ["auth", "arithmetic", "wasm", "storage-ttl", "balance"] {
         assert!(
-            cats.iter().any(|c| *c == required),
+            cats.contains(&required),
             "missing category {required} in ERROR_QUICK_FIXES"
         );
     }

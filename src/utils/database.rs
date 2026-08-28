@@ -22,7 +22,7 @@ pub trait Migration: Send + Sync {
 
     /// Apply the migration (upgrade)
     fn up(&self, conn: &Connection) -> Result<()>;
-    
+
     /// Rollback the migration (downgrade)
     fn down(&self, conn: &Connection) -> Result<()>;
 }
@@ -64,13 +64,22 @@ impl fmt::Display for MigrationError {
             Self::NotFound(v) => write!(f, "Migration version {v} not found"),
             Self::NothingToRollback => write!(f, "Cannot rollback: no migrations applied"),
             Self::MissingDependency(v, dep) => {
-                write!(f, "Migration version {v} depends on unapplied version {dep}")
+                write!(
+                    f,
+                    "Migration version {v} depends on unapplied version {dep}"
+                )
             }
             Self::InvalidSequence => {
-                write!(f, "Invalid migration sequence: versions must be consecutive")
+                write!(
+                    f,
+                    "Invalid migration sequence: versions must be consecutive"
+                )
             }
             Self::UnsupportedVersion(v, min, max) => {
-                write!(f, "Database schema version {v} is not supported (minimum: {min}, maximum: {max})")
+                write!(
+                    f,
+                    "Database schema version {v} is not supported (minimum: {min}, maximum: {max})"
+                )
             }
             Self::MigrationFailed(msg) => write!(f, "Migration failed: {msg}"),
         }
@@ -1141,12 +1150,12 @@ impl Migration for MigrationV1 {
     fn description(&self) -> &str {
         "initial_schema"
     }
-    
+
     fn up(&self, conn: &Connection) -> Result<()> {
         // This is a no-op since the initial schema is already applied in SCHEMA
         Ok(())
     }
-    
+
     fn down(&self, conn: &Connection) -> Result<()> {
         // Rollback: drop all tables
         conn.execute_batch(
@@ -1393,7 +1402,7 @@ mod tests {
         let db = in_memory_db();
         let migration = MigrationV1 {};
         let conn = db.conn;
-        
+
         // Verify tables exist before rollback
         let table_count: i64 = conn
             .query_row(
@@ -1406,7 +1415,7 @@ mod tests {
 
         // Rollback
         migration.down(&conn).unwrap();
-        
+
         // Verify tables are dropped
         let table_count_after: i64 = conn
             .query_row(
