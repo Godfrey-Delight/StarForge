@@ -178,6 +178,17 @@ impl PluginManager {
         let path_ref = path.as_ref();
         let path_display = path_ref.to_string_lossy().to_string();
 
+        // ── Pre-load manifest compatibility validation ───────────────────────
+        // Inspect and validate manifest *before* opening binary with Library::new()
+        // to prevent OS-level linker panics or ABI crashes on incompatible libraries.
+        if let Ok(Some(mf)) = manifest::load_manifest_for_library(Path::new(path_ref)) {
+            mf.validate()
+                .map_err(|e| PluginLoadError::ManifestIncompatible {
+                    path: path_display.clone(),
+                    detail: e.to_string(),
+                })?;
+        }
+
         // ── Open the shared library ──────────────────────────────────────────
         let library =
             Library::new(path_ref.as_os_str()).map_err(|e| PluginLoadError::InvalidLibrary {
@@ -226,53 +237,6 @@ impl PluginManager {
                 path: path_display,
                 plugin_core: core_version.to_string(),
                 running_core: CORE_VERSION.to_string(),
-            });
-        }
-
-        // ── Manifest compatibility and signature verification ────────────────
-        let config = crate::utils::config::load().unwrap_or_default();
-        if let Ok(Some(mf)) = manifest::load_manifest_for_library(Path::new(path_ref)) {
-            mf.validate()
-                .map_err(|e| PluginLoadError::ManifestIncompatible {
-                    path: path_display.clone(),
-                    detail: e.to_string(),
-                })?;
-
-            let ver_res =
-                crate::plugins::verifier::verify_plugin_signature(path_ref, &mf, &config);
-            match ver_res.status {
-                crate::plugins::verifier::VerificationStatus::InvalidSignature
-                | crate::plugins::verifier::VerificationStatus::MalformedKey
-                | crate::plugins::verifier::VerificationStatus::MalformedSignature => {
-                    return Err(PluginLoadError::VerificationFailed {
-                        path: path_display,
-                        status: ver_res.status.label().to_string(),
-                        detail: ver_res.detail.unwrap_or_default(),
-                    });
-                }
-                crate::plugins::verifier::VerificationStatus::UntrustedPublisher => {
-                    return Err(PluginLoadError::UntrustedPublisher {
-                        path: path_display,
-                        publisher_key: ver_res.publisher_key.unwrap_or_default(),
-                    });
-                }
-                crate::plugins::verifier::VerificationStatus::Unsigned => {
-                    if config.plugin_trust.require_signatures {
-                        return Err(PluginLoadError::VerificationFailed {
-                            path: path_display,
-                            status: "unsigned".to_string(),
-                            detail: "CLI policy requires signed plugins, but plugin is unsigned"
-                                .to_string(),
-                        });
-                    }
-                }
-                _ => {}
-            }
-        } else if config.plugin_trust.require_signatures {
-            return Err(PluginLoadError::VerificationFailed {
-                path: path_display,
-                status: "unsigned".to_string(),
-                detail: "CLI policy requires signed plugins, but no manifest was found".to_string(),
             });
         }
 

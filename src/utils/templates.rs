@@ -76,11 +76,53 @@ impl MaintenanceStatus {
     }
 }
 
+fn deserialize_findings_opt<'de, D>(deserializer: D) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct FindingsVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for FindingsVisitor {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a string, integer, or null")
+        }
+
+        fn visit_none<E>(self) -> std::result::Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> std::result::Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value.to_string()))
+        }
+
+        fn visit_string<E>(self, value: String) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value.to_string()))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value.to_string()))
+        }
+    }
+
+    deserializer.deserialize_any(FindingsVisitor)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityReview {
     pub status: String,
     pub auditor: Option<String>,
     pub audited_at: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_findings_opt")]
     pub findings: Option<String>,
     pub score: Option<f64>,
 }
@@ -635,6 +677,27 @@ fn registry_path() -> Result<PathBuf> {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
     Ok(dir.join("registry.json"))
+}
+
+/// Verify that the SHA-256 checksum of `bytes` matches `expected_hex`.
+///
+/// On mismatch, returns an error containing both the expected and actual hex strings.
+pub fn verify_archive_checksum(bytes: &[u8], expected_hex: &str) -> Result<()> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let actual_bytes = hasher.finalize();
+    let actual_hex = hex::encode(actual_bytes);
+    let expected_clean = expected_hex.trim();
+
+    if !actual_hex.eq_ignore_ascii_case(expected_clean) {
+        anyhow::bail!(
+            "Checksum mismatch for template archive: expected {}, got {}",
+            expected_clean,
+            actual_hex
+        );
+    }
+    Ok(())
 }
 
 /// Returns true if the path looks like a supported template archive.
@@ -2047,9 +2110,9 @@ mod tests {
     fn make_entry(name: &str) -> TemplateEntry {
         TemplateEntry {
             name: name.to_string(),
+            changelog: None,
             repository: None,
             security_review: None,
-            changelog: None,
             version: "1.0.0".to_string(),
             description: String::new(),
             author: String::new(),
@@ -2068,11 +2131,17 @@ mod tests {
             documented: false,
             maintenance: MaintenanceStatus::Unknown,
             license: None,
+            repository: None,
+            security_review: None,
+            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            repository: None,
+            security_review: None,
+            changelog: None,
         }
     }
 
@@ -2384,9 +2453,9 @@ mod tests {
         let mut registry = TemplateRegistry::default();
         registry.templates.push(TemplateEntry {
             name: "uniswap-v2".to_string(),
+            changelog: None,
             repository: None,
             security_review: None,
-            changelog: None,
             version: "1.0.0".to_string(),
             description: "Uniswap V2 DEX implementation".to_string(),
             author: "DeFi Team".to_string(),
@@ -2405,11 +2474,17 @@ mod tests {
             documented: true,
             maintenance: MaintenanceStatus::Active,
             license: None,
+            repository: None,
+            security_review: None,
+            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            repository: None,
+            security_review: None,
+            changelog: None,
         });
 
         // Test name search
@@ -2438,9 +2513,9 @@ mod tests {
 
         let entry = TemplateEntry {
             name: "my-template".to_string(),
+            changelog: None,
             repository: None,
             security_review: None,
-            changelog: None,
             source: TemplateSource::Git {
                 url: "https://example.com/repo.git".to_string(),
                 branch: None,
@@ -2459,11 +2534,17 @@ mod tests {
             documented: false,
             maintenance: MaintenanceStatus::Unknown,
             license: None,
+            repository: None,
+            security_review: None,
+            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            repository: None,
+            security_review: None,
+            changelog: None,
         };
 
         let dest = tmp.path().join(&entry.name);
@@ -2495,9 +2576,9 @@ mod tests {
     fn sample_entry() -> TemplateEntry {
         TemplateEntry {
             name: "sample".to_string(),
+            changelog: None,
             repository: None,
             security_review: None,
-            changelog: None,
             version: "1.0.0".to_string(),
             description: String::new(),
             author: String::new(),
@@ -2515,11 +2596,17 @@ mod tests {
             documented: false,
             maintenance: MaintenanceStatus::Unknown,
             license: None,
+            repository: None,
+            security_review: None,
+            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            repository: None,
+            security_review: None,
+            changelog: None,
         }
     }
 

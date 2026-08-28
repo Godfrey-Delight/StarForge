@@ -786,7 +786,7 @@ mod tests {
         let code = "pub fn slow() { let mut x = 0; for _ in 0..100 { x += 1; } }";
         let prompt = optimize_perf_prompt(code);
         assert!(prompt.contains(code));
-        assert!(prompt.contains("optimize"));
+        assert!(prompt.contains("Optimize"));
     }
 
     #[test]

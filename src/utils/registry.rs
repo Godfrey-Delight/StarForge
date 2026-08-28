@@ -125,6 +125,8 @@ pub struct RemoteTemplateEntry {
     pub updated_at: String,
     pub ratings: TemplateRatings,
     pub download_url: String,
+    #[serde(default)]
+    pub expected_sha256: Option<String>,
 }
 
 /// Rating and review statistics for a template.
@@ -306,7 +308,11 @@ impl RegistryClient {
     }
 
     /// Download a template archive from the remote registry.
-    pub async fn download_template(&self, download_url: &str) -> Result<Vec<u8>> {
+    pub async fn download_template(
+        &self,
+        download_url: &str,
+        expected_sha256: Option<&str>,
+    ) -> Result<Vec<u8>> {
         let resp = http_client::get_client()
             .get(download_url)
             .send()
@@ -322,6 +328,9 @@ impl RegistryClient {
         }
 
         let bytes = resp.bytes().await?;
+        if let Some(expected_hex) = expected_sha256 {
+            crate::utils::templates::verify_archive_checksum(&bytes, expected_hex)?;
+        }
         Ok(bytes.to_vec())
     }
 

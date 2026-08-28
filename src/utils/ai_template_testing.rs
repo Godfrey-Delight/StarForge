@@ -466,8 +466,9 @@ fn validate_cargo_toml(cargo_path: &Path, findings: &mut Vec<TestFinding>) {
         });
     }
 
-    // Check soroban-sdk dependency exists
-    let has_soroban_dep = find_soroban_dependency(package);
+    // Check soroban-sdk dependency exists (dependencies live at the document
+    // root, as a sibling of [package], not nested inside it).
+    let has_soroban_dep = find_soroban_dependency(&parsed);
     if !has_soroban_dep {
         findings.push(TestFinding {
             category: FindingCategory::Compatibility,
@@ -1476,7 +1477,7 @@ lto = true
         fs::write(
             dir.join("src/lib.rs"),
             r#"#![no_std]
-use soroban_sdk::{contract, contractimpl, symbol_short, Env, Symbol};
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, Env, Symbol};
 
 const KEY: Symbol = symbol_short!("KEY");
 
@@ -1485,8 +1486,9 @@ pub struct {{PROJECT_NAME_PASCAL}};
 
 #[contractimpl]
 impl {{PROJECT_NAME_PASCAL}} {
-    /// Initialize the contract.
-    pub fn init(env: Env) {
+    /// Initialize the contract. Only `admin` may call this.
+    pub fn init(env: Env, admin: Address) {
+        admin.require_auth();
         env.storage().instance().set(&KEY, &0u32);
     }
 
@@ -1503,9 +1505,11 @@ mod test {
     #[test]
     fn test_init() {
         let env = Env::default();
+        env.mock_all_auths();
         let contract_id = env.register_contract(None, {{PROJECT_NAME_PASCAL}});
         let client = {{PROJECT_NAME_PASCAL}}Client::new(&env, &contract_id);
-        client.init();
+        let admin = Address::generate(&env);
+        client.init(&admin);
         assert_eq!(client.get(), 0);
     }
 }
@@ -1846,8 +1850,8 @@ impl UnwrapContract {
         };
 
         let json = serde_json::to_string_pretty(&phase).unwrap();
-        assert!(json.contains("Security"));
-        assert!(json.contains("HIGH"));
+        assert!(json.contains("security"));
+        assert!(json.contains("high"));
 
         let deserialized: PhaseResult = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.phase, "test");
