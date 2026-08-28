@@ -624,7 +624,8 @@ async fn create(
         mnemonic::keypair_from_phrase(&phrase, "", account_index)?
     } else {
         p::step(1, steps, "Generating keypair…");
-        generate_keypair()
+        let (pk, sk) = generate_keypair();
+        (pk, zeroize::Zeroizing::new(sk))
     };
     println!();
     p::kv_accent("Public Key", &public_key);
@@ -658,7 +659,7 @@ async fn create(
             kdf_options(mem, iterations, parallelism, cfg.wallet_encryption.as_ref()).as_ref(),
         )?
     } else {
-        secret_key.clone()
+        secret_key.to_string()
     };
 
     let status = if encrypt {
@@ -1584,7 +1585,7 @@ fn import_from_mnemonic(
         )?;
         crypto::encrypt_secret(&pwd, &secret_key, None)?
     } else {
-        secret_key
+        secret_key.to_string()
     };
 
     cfg.wallets.push(config::WalletEntry {

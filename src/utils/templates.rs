@@ -30,6 +30,12 @@ pub enum TemplateSource {
     },
 }
 
+impl Default for TemplateSource {
+    fn default() -> Self {
+        TemplateSource::Builtin { id: String::new() }
+    }
+}
+
 impl std::fmt::Display for TemplateSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -91,7 +97,7 @@ pub struct ChangelogEntry {
     pub notes: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TemplateEntry {
     pub name: String,
     pub repository: Option<String>,
@@ -2067,6 +2073,7 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            ..Default::default()
         }
     }
 
@@ -2401,6 +2408,7 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            ..Default::default()
         });
 
         // Test name search
@@ -2452,6 +2460,7 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            ..Default::default()
         };
 
         let dest = tmp.path().join(&entry.name);
@@ -2505,6 +2514,7 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
+            ..Default::default()
         }
     }
 

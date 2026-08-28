@@ -515,7 +515,8 @@ mod tests {
             homepage: None,
             documentation: None,
             security_review: None,
-            changelog: vec![],
+            changelog: None,
+            ..Default::default()
         }
     }
 

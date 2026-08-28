@@ -6,6 +6,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use colored::Colorize;
 use dialoguer::Password;
 use rand::RngCore;
+use zeroize::{Zeroize, Zeroizing};
 use zxcvbn::zxcvbn;
 
 // ── Passphrase strength ───────────────────────────────────────────────────────
@@ -171,7 +172,7 @@ fn print_strength_hint(report: &StrengthReport) {
 /// - When `strict` is `true`, also rejects passphrases with a zxcvbn score
 ///   below [`STRICT_MIN_SCORE`] (i.e. anything weaker than "Strong").
 /// - Loops until the user provides an acceptable passphrase.
-pub fn prompt_passphrase(prompt: &str, strict: bool) -> Result<String> {
+pub fn prompt_passphrase(prompt: &str, strict: bool) -> Result<Zeroizing<String>> {
     prompt_passphrase_with_inputs(prompt, strict, &[])
 }
 
@@ -179,7 +180,7 @@ pub fn prompt_passphrase_with_inputs(
     prompt: &str,
     strict: bool,
     user_inputs: &[&str],
-) -> Result<String> {
+) -> Result<Zeroizing<String>> {
     loop {
         // Prompt without confirmation first so we can evaluate strength before
         // asking the user to type it a second time.
@@ -240,12 +241,14 @@ pub fn prompt_passphrase_with_inputs(
                     continue;
                 }
 
-                let confirm = Password::new()
+                let confirm_raw = Password::new()
                     .with_prompt("Confirm passphrase")
                     .interact()
                     .map_err(|e| anyhow!("Failed to read passphrase confirmation: {}", e))?;
 
-                if pwd != confirm {
+                let confirm = Zeroizing::new(confirm_raw);
+
+                if pwd != *confirm {
                     eprintln!(
                         "  {}",
                         "✗ Passphrases do not match. Please try again.".red()
@@ -253,7 +256,7 @@ pub fn prompt_passphrase_with_inputs(
                     continue;
                 }
 
-                return Ok(pwd);
+                return Ok(Zeroizing::new(pwd));
             }
         }
     }
@@ -358,7 +361,7 @@ fn parse_encrypted_bundle(bundle: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Op
 
 // ── Password prompt (for decryption / non-creation flows) ────────────────────
 
-pub fn prompt_password(prompt: &str, confirm: bool) -> Result<String> {
+pub fn prompt_password(prompt: &str, confirm: bool) -> Result<Zeroizing<String>> {
     let builder = Password::new().with_prompt(prompt);
 
     let builder = if confirm {
@@ -371,7 +374,7 @@ pub fn prompt_password(prompt: &str, confirm: bool) -> Result<String> {
     if pwd.is_empty() {
         anyhow::bail!("Password cannot be empty");
     }
-    Ok(pwd)
+    Ok(Zeroizing::new(pwd))
 }
 
 pub fn encrypt_secret(password: &str, secret: &str, kdf: Option<&KdfOptions>) -> Result<String> {
@@ -380,12 +383,12 @@ pub fn encrypt_secret(password: &str, secret: &str, kdf: Option<&KdfOptions>) ->
 
     let params = resolve_params(kdf)?;
     let argon2 = argon2_from_params(&params);
-    let mut key = [0u8; 32];
+    let mut key = Zeroizing::new([0u8; 32]);
     argon2
-        .hash_password_into(password.as_bytes(), &salt, &mut key)
+        .hash_password_into(password.as_bytes(), &salt, key.as_mut())
         .map_err(|e| anyhow!("Key derivation failed: {}", e))?;
 
-    let cipher = Aes256Gcm::new(&key.into());
+    let cipher = Aes256Gcm::new((&*key).into());
     let mut nonce_bytes = [0u8; 12];
     rand::thread_rng().fill_bytes(&mut nonce_bytes);
 
@@ -421,12 +424,12 @@ pub fn decrypt_secret(password: &str, bundle: &str) -> Result<String> {
 
     let params = resolve_params(kdf.as_ref())?;
     let argon2 = argon2_from_params(&params);
-    let mut key = [0u8; 32];
+    let mut key = Zeroizing::new([0u8; 32]);
     argon2
-        .hash_password_into(password.as_bytes(), &salt, &mut key)
+        .hash_password_into(password.as_bytes(), &salt, key.as_mut())
         .map_err(|e| anyhow!("Key derivation failed: {}", e))?;
 
-    let cipher = Aes256Gcm::new(&key.into());
+    let cipher = Aes256Gcm::new((&*key).into());
     let nonce = Nonce::from_slice(&nonce_bytes);
 
     let decrypted = cipher
@@ -572,5 +575,37 @@ mod tests {
 
         let decrypted = decrypt_secret(password, &encrypted).unwrap();
         assert_eq!(secret, decrypted);
+    }
+
+    #[test]
+    fn aes_key_zeroizes_on_drop() {
+        use std::ptr;
+        let addr: *const [u8; 32];
+        {
+            let z = Zeroizing::new([0xFFu8; 32]);
+            addr = z.as_ptr() as *const [u8; 32];
+        }
+        // SAFETY: We owned this stack slot; reading it after drop to verify zeroize.
+        let after: [u8; 32] = unsafe { ptr::read_volatile(addr) };
+        assert_eq!(after, [0u8; 32]);
+    }
+
+    #[test]
+    fn zeroizing_array_explicit_call_clears_all_bytes() {
+        let mut z = Zeroizing::new([0xFFu8; 32]);
+        z.zeroize();
+        assert_eq!(*z, [0u8; 32]);
+    }
+
+    #[test]
+    fn encrypt_error_path_still_compiles_with_zeroizing_key() {
+        // mem cost of 0 is rejected by Argon2; key must zeroize even on error path.
+        let bad_kdf = KdfOptions {
+            mem: Some(0),
+            iterations: Some(1),
+            parallelism: Some(1),
+        };
+        let result = encrypt_secret("password", "STEST", Some(&bad_kdf));
+        assert!(result.is_err());
     }
 }
