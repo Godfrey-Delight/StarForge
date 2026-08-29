@@ -179,6 +179,45 @@ export STARFORGE_CONFIG_DIR=~/.starforge-dev
 ### Secret Redaction & Security Logging
 StarForge enforces centralized secret redaction via `crate::utils::redaction::redact_secrets`. Tracing output streams (`RUST_LOG`) and CLI error output streams automatically sanitize Stellar secret keys (`S...`), hex private keys, BIP-39 mnemonic seed phrases, auth tokens (`Bearer`, `ghp_`, `sk-`), signed XDR transaction payloads, and embedded URL credentials before output. Existing helper functions (`redact_public_key`, `redact_secret_value`, `redact_signed_xdr`) delegate to this centralized engine.
 
+### Password-Based Encryption & KDF Parameter Tuning
+
+StarForge encrypts Stellar secret keys at rest using **Argon2id** key derivation and **AES-256-GCM** authenticated encryption.
+
+#### KDF Versioning & Schema Formats
+
+- **Version 1 (`KDF_VERSION_1 = 1`)**: Argon2id + AES-256-GCM.
+- **Bundle Formats**:
+  - Legacy 3-part: `salt:nonce:ciphertext` (library defaults: 32,768 KiB memory, 3 iterations, 1 parallelism thread).
+  - 5-part: `salt:nonce:ciphertext:mem:iterations` (custom memory cost and iteration count).
+  - 6-part: `salt:nonce:ciphertext:mem:iterations:parallelism` (custom memory, iterations, and parallelism).
+  - Versioned 7-part: `v1:salt:nonce:ciphertext:mem:iterations:parallelism` (explicit version prefixing for modern tuned bundles).
+
+#### Parameter Bounds & Safety Constraints
+
+- **Memory Cost (`mem`)**: Min 8,192 KiB (8 MiB), Max 2,097,152 KiB (2 GiB).
+- **Iterations (`iterations`)**: Min 1, Max 100.
+- **Parallelism (`parallelism`)**: Min 1, Max 64 threads.
+
+#### Per-Wallet Metadata & Safe Upgrades
+
+KDF parameters are stored per wallet (`WalletEntry.kdf_options` and metadata embedded in `secret_key`). Wallet encryption parameters can be tuned or upgraded safely without data loss using:
+
+```bash
+# Tune KDF parameters for a specific wallet
+starforge wallet tune-kdf alice --mem 65536 --iterations 4 --parallelism 2
+
+# Upgrade wallet KDF to global configuration settings
+starforge wallet tune-kdf alice --use-global
+```
+
+The upgrade procedure enforces zero-data-loss safety:
+1. Validates existing password against current bundle before making any changes.
+2. Validates new KDF parameters against security bounds.
+3. Re-encrypts secret key with new parameters.
+4. Performs a verification decryption round-trip on the new bundle before persisting changes to disk and database.
+5. If any validation or decryption step fails, the original encrypted secret and metadata remain completely unchanged.
+
+
 ### Development Workflow
 
 ```bash

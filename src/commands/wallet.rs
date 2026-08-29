@@ -270,6 +270,23 @@ pub enum WalletCommands {
         #[arg(long, value_enum)]
         hardware: Option<hardware_wallet::HardwareWalletKind>,
     },
+    /// Tune or upgrade KDF encryption parameters for a saved encrypted wallet
+    TuneKdf {
+        /// Wallet name to upgrade
+        name: String,
+        /// Argon2 memory cost in KiB (e.g. 65536)
+        #[arg(long)]
+        mem: Option<u32>,
+        /// Argon2 iteration count (e.g. 4)
+        #[arg(long)]
+        iterations: Option<u32>,
+        /// Argon2 parallelism factor (e.g. 2)
+        #[arg(long)]
+        parallelism: Option<u32>,
+        /// Upgrade to global configuration KDF parameters
+        #[arg(long, default_value = "false")]
+        use_global: bool,
+    },
     /// Derive all 10 Stellar addresses (m/44'/148'/0..9') from a BIP39 recovery phrase
     Derive,
     /// Multi-signature account management
@@ -450,8 +467,97 @@ pub async fn handle(cmd: WalletCommands) -> Result<()> {
             hardware,
         } => sign_message(name, message, hardware),
         WalletCommands::Derive => derive_addresses(),
+        WalletCommands::TuneKdf {
+            name,
+            mem,
+            iterations,
+            parallelism,
+            use_global,
+        } => tune_wallet_kdf(&name, mem, iterations, parallelism, use_global),
         WalletCommands::Multisig(cmd) => handle_multisig(cmd).await,
     }
+}
+
+fn tune_wallet_kdf(
+    name: &str,
+    mem: Option<u32>,
+    iterations: Option<u32>,
+    parallelism: Option<u32>,
+    use_global: bool,
+) -> Result<()> {
+    p::header(&format!("Tune KDF Encryption Parameters: '{}'", name));
+
+    let cfg = config::load()?;
+    let wallet = cfg
+        .wallets
+        .iter()
+        .find(|w| w.name == name)
+        .ok_or_else(|| anyhow::anyhow!("Wallet '{}' not found", name))?;
+
+    let secret_bundle = wallet
+        .secret_key
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Wallet '{}' has no secret key saved", name))?;
+
+    if !secret_bundle.contains(':') {
+        anyhow::bail!(
+            "Wallet '{}' is unencrypted. Run `wallet rotate --encrypt` to enable encryption first.",
+            name
+        );
+    }
+
+    let current_meta = wallet
+        .kdf_metadata()
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse current KDF metadata for '{}'", name))?;
+
+    p::kv("Current KDF Version", &current_meta.version.to_string());
+    p::kv("Current Memory", &format!("{} KiB", current_meta.mem));
+    p::kv("Current Iterations", &current_meta.iterations.to_string());
+    p::kv("Current Parallelism", &current_meta.parallelism.to_string());
+
+    if !use_global && mem.is_none() && iterations.is_none() && parallelism.is_none() {
+        anyhow::bail!(
+            "Specify at least one parameter to update (--mem, --iterations, --parallelism) or use --use-global."
+        );
+    }
+
+    let global_default = cfg.wallet_encryption.as_ref();
+    let target_options = if use_global {
+        global_default.cloned().unwrap_or_default()
+    } else {
+        crypto::KdfOptions {
+            mem: mem.or(Some(current_meta.mem)),
+            iterations: iterations.or(Some(current_meta.iterations)),
+            parallelism: parallelism.or(Some(current_meta.parallelism)),
+        }
+    };
+
+    target_options.validate()?;
+
+    let password = crypto::prompt_password("Enter wallet passphrase", false)?;
+
+    config::upgrade_wallet_kdf(name, &password, Some(target_options))?;
+
+    let updated_cfg = config::load()?;
+    let updated_wallet = updated_cfg
+        .wallets
+        .iter()
+        .find(|w| w.name == name)
+        .ok_or_else(|| anyhow::anyhow!("Wallet '{}' not found after upgrade", name))?;
+
+    if let Some(new_meta) = updated_wallet.kdf_metadata() {
+        p::separator();
+        p::success(&format!(
+            "Successfully upgraded KDF parameters for wallet '{}'",
+            name
+        ));
+        p::kv("Upgraded KDF Version", &new_meta.version.to_string());
+        p::kv("Upgraded Memory", &format!("{} KiB", new_meta.mem));
+        p::kv("Upgraded Iterations", &new_meta.iterations.to_string());
+        p::kv("Upgraded Parallelism", &new_meta.parallelism.to_string());
+    }
+
+    Ok(())
 }
 
 fn parse_duration(input: &str) -> Result<std::time::Duration> {
@@ -694,6 +800,11 @@ async fn create(
     println!();
 
     p::step(2, steps, "Saving to ~/.starforge/config.tomlâ€¦");
+    let kdf = if encrypt {
+        kdf_options(mem, iterations, parallelism, cfg.wallet_encryption.as_ref())
+    } else {
+        None
+    };
     let wallet = config::WalletEntry {
         name: name.clone(),
         public_key: public_key.clone(),
@@ -701,6 +812,7 @@ async fn create(
         network: network.clone(),
         created_at: Utc::now().to_rfc3339(),
         funded: false,
+        kdf_options: kdf,
         rotation_history: Vec::new(),
     };
     cfg.wallets.push(wallet);
@@ -1670,6 +1782,7 @@ fn import_from_hardware(
         network,
         created_at: Utc::now().to_rfc3339(),
         funded: false,
+        kdf_options: None,
         rotation_history: vec![],
     });
     config::save(&updated_cfg)?;
@@ -1719,6 +1832,11 @@ fn import_from_mnemonic(
         secret_key
     };
 
+    let kdf = if encrypt {
+        kdf_options(None, None, None, cfg.wallet_encryption.as_ref())
+    } else {
+        None
+    };
     cfg.wallets.push(config::WalletEntry {
         name: name.clone(),
         public_key,
@@ -1726,6 +1844,7 @@ fn import_from_mnemonic(
         network: network.clone(),
         created_at: Utc::now().to_rfc3339(),
         funded: false,
+        kdf_options: kdf,
         rotation_history: Vec::new(),
     });
 
@@ -1777,6 +1896,11 @@ fn import_from_secret_key(
         secret_key
     };
 
+    let kdf = if encrypt {
+        kdf_options(None, None, None, cfg.wallet_encryption.as_ref())
+    } else {
+        None
+    };
     cfg.wallets.push(config::WalletEntry {
         name: name.clone(),
         public_key,
@@ -1784,6 +1908,7 @@ fn import_from_secret_key(
         network,
         created_at: Utc::now().to_rfc3339(),
         funded: false,
+        kdf_options: kdf,
         rotation_history: Vec::new(),
     });
 
@@ -1835,6 +1960,15 @@ fn import_wallets(file: PathBuf) -> Result<()> {
 
     let imported = backup.wallets.len();
     for wallet in backup.wallets {
+        let kdf_options = wallet
+            .secret_key
+            .as_ref()
+            .and_then(|s| crypto::extract_kdf_metadata(s).ok())
+            .map(|m| crypto::KdfOptions {
+                mem: Some(m.mem),
+                iterations: Some(m.iterations),
+                parallelism: Some(m.parallelism),
+            });
         cfg.wallets.push(config::WalletEntry {
             name: wallet.name,
             public_key: wallet.public_key,
@@ -1842,6 +1976,7 @@ fn import_wallets(file: PathBuf) -> Result<()> {
             network: wallet.network,
             created_at: wallet.created_at,
             funded: wallet.funded,
+            kdf_options,
             rotation_history: Vec::new(),
         });
     }
