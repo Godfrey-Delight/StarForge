@@ -56,19 +56,42 @@ cargo deny check --all-features
 ```
 
 **What it checks:**
-- Known security advisories in dependencies
-- Prohibited licenses
-- Duplicate dependencies
-- Unmaintained dependencies
+- Known security advisories in dependencies (via RustSec advisory database)
+- Only approved open-source licenses are present in the dependency tree
+- Duplicate crate versions across the dependency graph
+- Only dependencies from crates.io are allowed; untrusted registries and git sources are rejected
+
+**Configuration:** The policy is defined in `deny.toml` at the repository root. Every ignored advisory must have a documented rationale.
 
 **Local equivalent:**
 ```bash
 # Install cargo-deny (if not present)
 cargo install cargo-deny
 
-# Run security audit
+# Run all supply-chain checks
 cargo deny check
+
+# Run individual checks
+cargo deny check advisories
+cargo deny check licenses
+cargo deny check bans
+cargo deny check sources
 ```
+
+**Failure behavior:**
+- cargo-deny exits non-zero on any policy violation, which fails the CI job.
+- The `continue-on-error` flag is **not** used — all violations block the PR.
+- Output includes the specific advisory ID, crate name, and license that caused the failure.
+
+**Unsupported environments:**
+- If cargo-deny cannot be installed or run in the CI environment, the job fails rather than silently skipping.
+- The CI configuration uses the official `EmbarkStudios/cargo-deny-action@v2` action, which handles Rust toolchain setup automatically.
+
+**Handling new violations:**
+- **Advisory**: Update the dependency or add a documented ignore to `[advisories].ignore` in `deny.toml`.
+- **License**: Add the license to `[licenses].allow` in `deny.toml` if it is compatible, or replace the dependency.
+- **Duplicate**: Investigate whether the duplicate can be eliminated; duplicates are currently warned (not denied) to avoid breaking changes.
+- **Source**: No new registries or git sources are allowed without explicit approval.
 
 ---
 
