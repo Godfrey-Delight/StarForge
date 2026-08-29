@@ -37,8 +37,8 @@ fn deny_toml_exists_and_is_valid_toml() {
     let content = read_deny_toml();
     // A bare parse check: every TOML document must parse without panicking.
     // We use toml::Value because the `toml` crate is already a dependency.
-    let parsed: toml::Value = toml::from_str(&content)
-        .expect("deny.toml is not valid TOML – fix syntax errors");
+    let parsed: toml::Value =
+        toml::from_str(&content).expect("deny.toml is not valid TOML – fix syntax errors");
     assert!(
         parsed.is_table(),
         "deny.toml must be a TOML table at the top level"
@@ -113,9 +113,7 @@ fn deny_toml_has_bans_section() {
         table.contains_key("bans"),
         "deny.toml must contain a [bans] section"
     );
-    let bans = table["bans"]
-        .as_table()
-        .expect("[bans] must be a table");
+    let bans = table["bans"].as_table().expect("[bans] must be a table");
     assert!(
         bans.contains_key("multiple-versions"),
         "[bans] must configure multiple-versions policy"
@@ -163,9 +161,8 @@ fn deny_toml_has_sources_section() {
 fn sources_allow_list_includes_crates_io() {
     let content = read_deny_toml();
     let parsed: toml::Value = toml::from_str(&content).expect("invalid TOML");
-    let sources = parsed["sources"]
-        .as_table()
-        .expect("[sources] must exist");
+    let sources =
+        parsed["sources"].as_table().expect("[sources] must exist");
     if let Some(allow_reg) = sources.get("allow-registry") {
         let regs: Vec<String> = allow_reg
             .as_array()
@@ -241,10 +238,7 @@ ignore = [
     "RUSTSEC-2024-0388"
 "#;
     let result = toml::from_str::<toml::Value>(bad_toml);
-    assert!(
-        result.is_err(),
-        "malformed deny.toml must fail to parse"
-    );
+    assert!(result.is_err(), "malformed deny.toml must fail to parse");
 }
 
 #[test]
@@ -255,10 +249,7 @@ fn deny_toml_licenses_must_not_be_empty() {
     let allow = licenses["allow"]
         .as_array()
         .expect("[licenses].allow must be an array");
-    assert!(
-        !allow.is_empty(),
-        "license allow-list must not be empty"
-    );
+    assert!(!allow.is_empty(), "license allow-list must not be empty");
 }
 
 // ---------------------------------------------------------------------------
