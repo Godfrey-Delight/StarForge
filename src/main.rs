@@ -42,6 +42,13 @@ struct Cli {
     /// Must be 8–64 characters of [A-Za-z0-9_-].
     #[arg(long, global = true)]
     correlation_id: Option<String>,
+
+    /// Never block on an interactive prompt: fail with a clear error
+    /// instead, pointing to the env var or flag that supplies the value
+    /// headlessly. Auto-detected when $CI is set or stdin isn't a terminal
+    /// (also settable via $STARFORGE_NON_INTERACTIVE).
+    #[arg(long, global = true)]
+    non_interactive: bool,
 }
 
 #[derive(Subcommand)]
@@ -259,6 +266,22 @@ enum Commands {
     #[command(subcommand)]
     AiDocQa(commands::ai_doc_qa::AiDocQaCommands),
 
+    /// AI-driven performance profiling of a compiled Soroban WASM
+    #[command(subcommand)]
+    AiProfile(commands::ai_profile::AiProfileCommands),
+
+    /// AI IDE integration (setup, diagnostics, editor support)
+    #[command(subcommand)]
+    AiIde(commands::ai_ide::AiIdeCommands),
+
+    /// AI test maintenance (analyze, suggest, health gates)
+    #[command(subcommand)]
+    AiTestMaintain(commands::ai_test_maintain::AiTestMaintainCommands),
+
+    /// AI-driven deployment testing (pre/post checks, readiness gate)
+    #[command(subcommand)]
+    AiDeploymentTest(commands::ai_deployment_test::AiDeploymentTestCommands),
+
     /// Schedule deployments for future execution with approval workflows
     #[command(subcommand)]
     Schedule(commands::schedule::ScheduleCommands),
@@ -273,6 +296,10 @@ enum Commands {
 
     /// Static analysis and linting for Soroban contracts
     Lint(commands::lint::LintArgs),
+
+    /// Generate or install man pages
+    #[command(subcommand)]
+    Man(commands::man::ManCommand),
 
     /// Run connectivity diagnostics for attached Ledger/Trezor devices
     Diagnostics(commands::diagnostics::DiagnosticsArgs),
@@ -341,6 +368,7 @@ async fn main() {
     let cli = Cli::parse();
     OUTPUT_MODE_INIT.call_once(|| {});
     utils::output::set_json_mode(cli.json);
+    utils::interactive::set_non_interactive(cli.non_interactive);
 
     // Initialise structured logging before anything else runs.
     let log_cfg =
@@ -422,10 +450,15 @@ async fn main() {
         Commands::AiAccessibility(_) => "ai-accessibility",
         Commands::AiContractSuggest(_) => "ai-contract-suggest",
         Commands::AiDocQa(_) => "ai-doc-qa",
+        Commands::AiProfile(_) => "ai-profile",
+        Commands::AiIde(_) => "ai-ide",
+        Commands::AiTestMaintain(_) => "ai-test-maintain",
+        Commands::AiDeploymentTest(_) => "ai-deployment-test",
         Commands::Schedule(_) => "schedule",
         Commands::Simulate(_) => "simulate",
         Commands::Backup(_) => "backup",
         Commands::Lint(_) => "lint",
+        Commands::Man(_) => "man",
         Commands::Diagnostics(_) => "diagnostics",
         Commands::TemplateVcs(_) => "template-vcs",
         Commands::Perf(_) => "perf",
@@ -523,10 +556,15 @@ async fn main() {
         Commands::AiAccessibility(cmd) => commands::ai_accessibility::handle(cmd).await,
         Commands::AiContractSuggest(cmd) => commands::ai_contract_suggest::handle(cmd).await,
         Commands::AiDocQa(cmd) => commands::ai_doc_qa::handle(cmd).await,
+        Commands::AiProfile(cmd) => commands::ai_profile::handle(cmd).await,
+        Commands::AiIde(cmd) => commands::ai_ide::handle(cmd).await,
+        Commands::AiTestMaintain(cmd) => commands::ai_test_maintain::handle(cmd).await,
+        Commands::AiDeploymentTest(cmd) => commands::ai_deployment_test::handle(cmd).await,
         Commands::Schedule(cmd) => commands::schedule::handle(cmd).await,
         Commands::Simulate(cmd) => commands::simulate::handle(cmd).await,
         Commands::Backup(cmd) => commands::backup::handle(cmd).await,
         Commands::Lint(args) => commands::lint::handle(args).await,
+        Commands::Man(cmd) => commands::man::handle(cmd).await,
         Commands::Diagnostics(args) => commands::diagnostics::handle(args),
         Commands::TemplateVcs(cmd) => commands::template_vcs::handle(cmd).await,
         Commands::Perf(cmd) => commands::perf::handle(cmd).await,
@@ -742,7 +780,7 @@ fn recovery_hints(command: &str, err: &anyhow::Error) -> Vec<String> {
                     .into(),
             );
             hints.push("Explain a specific category: starforge ai-debug explain auth".into());
-            hints.push("Available categories: auth, arithmetic, storage, token, panic, wasm, network, ttl, test, type".into());
+            hints.push("Available categories: auth, arithmetic, storage, token, panic, wasm, network, deployment, rollback, security, analytics, ttl, test, type".into());
         }
         "ai-test" => {
             if msg.contains("not found") || msg.contains("no such file") {

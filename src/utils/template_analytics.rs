@@ -922,11 +922,15 @@ mod tests {
             maintenance: MaintenanceStatus::Unknown,
             license: None,
             repository: None,
+            repository_url: None,
             homepage: None,
             documentation: None,
+            categories: vec![],
+            featured: false,
             security_review: None,
-            changelog: None,
-            ..Default::default()
+            changelog: Some(vec![]),
+            categories: Vec::new(),
+            featured: false,
         }
     }
 

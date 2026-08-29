@@ -35,6 +35,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::utils::config;
+use crate::utils::shamir;
 
 /// Backup schema version this build writes and accepts.
 pub const WALLET_BACKUP_VERSION: &str = "2";
@@ -94,6 +95,12 @@ pub enum WalletImportError {
     DeceptiveWalletName { wallet: String, reason: String },
     /// The encrypted bundle did not have 3, 5, or 6 colon-separated parts.
     MalformedEnvelope { parts: usize },
+    /// Recovery shares are present but invalid.
+    InvalidRecoveryShares(String),
+    /// Not enough shares provided for reconstruction.
+    InsufficientShares { provided: usize, required: usize },
+    /// Reconstructed data failed integrity check (corrupted shares).
+    CorruptedShares,
     /// A base64 field of the bundle did not decode.
     InvalidBase64 { field: &'static str },
     /// A bundle field had the wrong decoded length.
@@ -168,10 +175,19 @@ impl std::fmt::Display for WalletImportError {
             Self::InvalidKdfParameter { field, reason } => {
                 write!(f, "KDF parameter `{}` is invalid: {}", field, reason)
             }
-            Self::IntegrityCheckFailed => write!(
-                f,
-                "backup integrity check failed; the file may have been tampered with"
-            ),
+            Self::InvalidRecoveryShares(msg) => {
+                write!(f, "invalid recovery shares: {}", msg)
+            }
+            Self::InsufficientShares { provided, required } => {
+                write!(
+                    f,
+                    "need at least {} recovery shares for reconstruction, but only {} were provided",
+                    required, provided
+                )
+            }
+            Self::CorruptedShares => {
+                write!(f, "recovery shares failed integrity check — data may be corrupted or from different split operations")
+            }
         }
     }
 }
@@ -190,12 +206,11 @@ pub struct WalletBackup {
     pub version: String,
     pub exported_at: String,
     pub wallets: Vec<WalletBackupEntry>,
-    /// HMAC-SHA256 over the canonical JSON of this document (with this field
-    /// set to `null`), encoded as lowercase hex. Present in v2 backups.
-    /// Absent in v1 backups; the `#[serde(default)]` ensures v1 files
-    /// deserialise without error.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub integrity_tag: Option<String>,
+    /// Optional Shamir recovery shares. When present, the backup can be
+    /// reconstructed from `threshold` of `total_shares` share files instead
+    /// of a single passphrase.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub recovery_shares: Option<Vec<shamir::RecoveryShare>>,
 }
 
 /// One wallet inside a backup document.
@@ -568,6 +583,78 @@ pub fn validate_entry(entry: &WalletBackupEntry) -> Result<()> {
         });
     }
     Ok(())
+}
+
+/// Validate a set of recovery shares for reconstruction.
+///
+/// Returns the shares sorted by index, or an error describing what is wrong.
+pub fn validate_recovery_shares(shares: &[shamir::RecoveryShare]) -> Result<()> {
+    if shares.is_empty() {
+        return Err(WalletImportError::InvalidRecoveryShares(
+            "no shares provided".to_string(),
+        ));
+    }
+
+    let threshold = shares[0].threshold as usize;
+    let total = shares[0].total_shares as usize;
+    let secret_hash = &shares[0].secret_hash;
+
+    for (i, share) in shares.iter().enumerate() {
+        if share.threshold as usize != threshold {
+            return Err(WalletImportError::InvalidRecoveryShares(format!(
+                "share {} has threshold {}, expected {}",
+                i, share.threshold, threshold
+            )));
+        }
+        if share.total_shares as usize != total {
+            return Err(WalletImportError::InvalidRecoveryShares(format!(
+                "share {} has total_shares {}, expected {}",
+                i, share.total_shares, total
+            )));
+        }
+        if &share.secret_hash != secret_hash {
+            return Err(WalletImportError::InvalidRecoveryShares(format!(
+                "share {} has a different secret hash — shares may be from different split operations",
+                i
+            )));
+        }
+    }
+
+    // Check for duplicate indices.
+    let mut seen = std::collections::HashSet::new();
+    for share in shares {
+        if !seen.insert(share.index) {
+            return Err(WalletImportError::InvalidRecoveryShares(format!(
+                "duplicate share index {}",
+                share.index
+            )));
+        }
+    }
+
+    if shares.len() < threshold {
+        return Err(WalletImportError::InsufficientShares {
+            provided: shares.len(),
+            required: threshold,
+        });
+    }
+
+    Ok(())
+}
+
+/// Reconstruct an encrypted bundle from recovery shares.
+///
+/// This is a convenience wrapper around [`shamir::reconstruct`] that
+/// returns wallet-import-specific errors.
+pub fn reconstruct_from_shares(shares: &[shamir::RecoveryShare]) -> Result<String> {
+    validate_recovery_shares(shares)?;
+    let secret = shamir::reconstruct(shares)
+        .map_err(|e| WalletImportError::InvalidRecoveryShares(e.to_string()))?;
+    String::from_utf8(secret).map_err(|e| {
+        WalletImportError::InvalidRecoveryShares(format!(
+            "reconstructed data is not valid UTF-8: {}",
+            e
+        ))
+    })
 }
 
 #[cfg(test)]
