@@ -117,6 +117,27 @@ cargo clippy --fix --allow-dirty --allow-staged
 
 ---
 
+### Job: Cargo.lock Reproducibility & Immutability Verification
+
+**Purpose**: Ensure locked builds do not mutate dependency resolution on Linux, macOS, or Windows.  
+**Trigger**: Every push and pull request across all OS matrix targets  
+**Status**: ✅ Required (must pass)
+
+```bash
+# Enforce lockfile immutability
+git diff --exit-code Cargo.lock
+
+# Verify Cargo.lock reproducibility with StarForge
+starforge verify lockfile
+```
+
+**What it checks:**
+- `Cargo.lock` exact deterministic resolution across supported operating systems (Linux, macOS, Windows).
+- That locked compilation (`--locked`) does not modify `Cargo.lock` or require dependency resolution updates.
+- Detection of out-of-sync dependency specifications between `Cargo.toml` and `Cargo.lock`.
+
+---
+
 ### Job: CLI Smoke Tests
 
 **Purpose**: Validate basic CLI functionality works end-to-end  

@@ -10,12 +10,37 @@ Complete guide for developers contributing to or extending StarForge.
 4. [Project Structure](#project-structure)
 5. [Code Style Guide](#code-style-guide)
 6. [Adding New Features](#adding-new-features)
-7. [Testing](#testing)
-8. [Documentation](#documentation)
-9. [Common Tasks](#common-tasks)
-10. [Debugging](#debugging)
-11. [Release Process](#release-process)
-12. [Database Migrations](#database-migrations)
+7. [Cargo.lock Reproducibility & Cross-Platform Lock](#cargolock-reproducibility--cross-platform-lock)
+8. [Testing](#testing)
+9. [Documentation](#documentation)
+10. [Common Tasks](#common-tasks)
+11. [Debugging](#debugging)
+12. [Release Process](#release-process)
+13. [Database Migrations](#database-migrations)
+
+---
+
+## Cargo.lock Reproducibility & Cross-Platform Lock
+
+StarForge strictly enforces `Cargo.lock` reproducibility across all supported operating systems (Linux, macOS, Windows).
+
+### Requirements & Principles
+
+1. **Deterministic Builds**: Locked builds (`cargo build --locked` / `cargo check --locked`) must resolve identical dependency versions across Linux, macOS, and Windows.
+2. **No Mutating Builds**: Running standard CI steps or local build commands must never mutate `Cargo.lock`.
+3. **Out-of-Sync Prevention**: Modifying dependencies in `Cargo.toml` without updating `Cargo.lock` via `cargo update -p <crate>` will fail CI quality checks.
+
+### Verification CLI Command
+
+Developers can verify lockfile reproducibility locally prior to committing:
+
+```bash
+# Verify lockfile reproducibility for the current directory
+starforge verify lockfile
+
+# Verify lockfile in a specific workspace path with JSON output
+starforge verify lockfile --path ./my-workspace --json
+```
 
 ---
 

@@ -54,6 +54,8 @@ jobs:
         run: cargo test --test json_contract_stability --locked
       - name: Build and Test
         run: cargo test --locked -- --test-threads=1
+      - name: Verify Cargo.lock immutability
+        run: git diff --exit-code Cargo.lock
 
   clippy:
     name: Clippy Lint
@@ -84,6 +86,8 @@ jobs:
         run: cargo test --test cli_smoke --locked
       - name: Shell smoke script
         run: bash scripts/e2e-smoke.sh
+      - name: Verify Cargo.lock immutability
+        run: git diff --exit-code Cargo.lock
 
   cli-macos:
     name: macOS CLI Tests
@@ -97,6 +101,8 @@ jobs:
         run: cargo test --test cli_cross_platform --locked
       - name: Rust smoke tests
         run: cargo test --test cli_smoke --locked
+      - name: Verify Cargo.lock immutability
+        run: git diff --exit-code Cargo.lock
 
   cli-windows:
     name: Windows CLI Tests
@@ -110,3 +116,5 @@ jobs:
         run: cargo test --test cli_cross_platform --locked
       - name: Rust smoke tests
         run: cargo test --test cli_smoke --locked
+      - name: Verify Cargo.lock immutability
+        run: git diff --exit-code Cargo.lock
