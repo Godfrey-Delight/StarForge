@@ -76,7 +76,9 @@ impl MaintenanceStatus {
     }
 }
 
-fn deserialize_findings_opt<'de, D>(deserializer: D) -> std::result::Result<Option<String>, D::Error>
+fn deserialize_findings_opt<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -136,8 +138,11 @@ pub struct ChangelogEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemplateEntry {
     pub name: String,
+    #[serde(default)]
     pub repository: Option<String>,
+    #[serde(default)]
     pub security_review: Option<SecurityReview>,
+    #[serde(default)]
     pub changelog: Option<Vec<ChangelogEntry>>,
     pub description: String,
     pub version: String,
@@ -668,12 +673,32 @@ const DEFAULT_REGISTRY_URL: &str =
     "https://starforge-protocol.github.io/starforge/templates/registry.json";
 
 fn registry_path() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("templates");
+    let dir = crate::utils::config::config_dir().join("templates");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
     Ok(dir.join("registry.json"))
+}
+
+/// Verify that the SHA-256 checksum of `bytes` matches `expected_hex`.
+///
+/// On mismatch, returns an error containing both the expected and actual hex strings.
+pub fn verify_archive_checksum(bytes: &[u8], expected_hex: &str) -> Result<()> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let actual_bytes = hasher.finalize();
+    let actual_hex = hex::encode(actual_bytes);
+    let expected_clean = expected_hex.trim();
+
+    if !actual_hex.eq_ignore_ascii_case(expected_clean) {
+        anyhow::bail!(
+            "Checksum mismatch for template archive: expected {}, got {}",
+            expected_clean,
+            actual_hex
+        );
+    }
+    Ok(())
 }
 
 /// Returns true if the path looks like a supported template archive.
@@ -771,8 +796,9 @@ pub fn resolve_template_source(path: &Path) -> Result<(PathBuf, Option<tempfile:
 }
 
 fn template_storage_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("templates").join("storage");
+    let dir = crate::utils::config::config_dir()
+        .join("templates")
+        .join("storage");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
@@ -780,8 +806,7 @@ fn template_storage_dir() -> Result<PathBuf> {
 }
 
 fn template_cache_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("template-cache");
+    let dir = crate::utils::config::config_dir().join("template-cache");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
@@ -2086,6 +2111,9 @@ mod tests {
     fn make_entry(name: &str) -> TemplateEntry {
         TemplateEntry {
             name: name.to_string(),
+            changelog: None,
+            repository: None,
+            security_review: None,
             version: "1.0.0".to_string(),
             description: String::new(),
             author: String::new(),
@@ -2420,6 +2448,9 @@ mod tests {
         let mut registry = TemplateRegistry::default();
         registry.templates.push(TemplateEntry {
             name: "uniswap-v2".to_string(),
+            changelog: None,
+            repository: None,
+            security_review: None,
             version: "1.0.0".to_string(),
             description: "Uniswap V2 DEX implementation".to_string(),
             author: "DeFi Team".to_string(),
@@ -2471,6 +2502,9 @@ mod tests {
 
         let entry = TemplateEntry {
             name: "my-template".to_string(),
+            changelog: None,
+            repository: None,
+            security_review: None,
             source: TemplateSource::Git {
                 url: "https://example.com/repo.git".to_string(),
                 branch: None,
@@ -2525,6 +2559,9 @@ mod tests {
     fn sample_entry() -> TemplateEntry {
         TemplateEntry {
             name: "sample".to_string(),
+            changelog: None,
+            repository: None,
+            security_review: None,
             version: "1.0.0".to_string(),
             description: String::new(),
             author: String::new(),

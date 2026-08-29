@@ -59,6 +59,49 @@ You can install the latest release binary using the installation script:
 curl -sL https://raw.githubusercontent.com/Josetic224/StarForge/main/install.sh | bash
 ```
 
+The script automatically:
+1. Detects your OS and CPU architecture
+2. Downloads the correct release archive from GitHub
+3. **Verifies the SHA-256 checksum** against the published `SHA256SUMS.txt` before extracting
+4. Installs the binary to `/usr/local/bin` (or a custom path — see below)
+5. Cleans up all temporary files on exit
+
+> **Security note**: Never pipe an untrusted script to `bash` without reviewing it first.
+> You can read [`install.sh`](./install.sh) before running it, or download the binary
+> directly from the [Releases page](https://github.com/Josetic224/StarForge/releases) and verify the checksum manually:
+>
+> ```bash
+> sha256sum -c SHA256SUMS.txt
+> ```
+
+#### Platform compatibility
+
+| OS | Architecture | Supported |
+|---|---|---|
+| Linux | x86\_64 | ✅ |
+| Linux | aarch64 | ✅ |
+| macOS | x86\_64 | ✅ |
+| macOS | aarch64 (Apple Silicon) | ✅ |
+| Windows | x86\_64 | Download `.zip` from [Releases](https://github.com/Josetic224/StarForge/releases) |
+| FreeBSD / other | — | Not supported |
+
+#### Custom install directory
+
+Override the default `/usr/local/bin` destination:
+
+```bash
+INSTALL_DIR="$HOME/.local/bin" \
+  curl -sL https://raw.githubusercontent.com/Josetic224/StarForge/main/install.sh | bash
+```
+
+#### Uninstall
+
+```bash
+rm -f /usr/local/bin/starforge
+# or, if you used a custom INSTALL_DIR:
+rm -f "$INSTALL_DIR/starforge"
+```
+
 ### Homebrew (macOS / Linux)
 
 A draft Homebrew formula is available for testing:
@@ -95,6 +138,53 @@ starforge info
 ---
 
 ## Usage
+
+### Repeatable invocation scripts
+
+Store ordered contract calls in YAML or JSON. Scripts use schema version `1`, reject unknown fields, and support `${NAME}` interpolation from the script's `env` map or the CI process environment:
+
+```yaml
+version: 1
+env:
+  CONTRACT_ID: CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+steps:
+  - name: read-state
+    contract_id: ${CONTRACT_ID}
+    function: get_value
+    wallet: ci
+    network: testnet
+    args:
+      - type: string
+        value: deployment
+    assertions:
+      - contains: ready
+  - name: write-state
+    contract_id: ${CONTRACT_ID}
+    function: set_value
+    wallet: ci
+    network: testnet
+    args:
+      - type: string
+        value: deployment
+      - type: string
+        value: ${VALUE}
+```
+
+Validate the complete sequence without contacting RPC or submitting transactions:
+
+```bash
+starforge contract invoke-script ops.yaml --dry-run
+```
+
+Run it in CI after configuring the `ci` wallet and environment variables. Steps execute sequentially, and a failed assertion stops the script:
+
+```yaml
+# .github/workflows/invoke.yml
+- name: Run contract operations
+  run: starforge contract invoke-script ops.yaml
+  env:
+    VALUE: production
+```
 
 ### Wallet commands
 
@@ -172,33 +262,43 @@ Common settings:
 
 For privacy information, see [Telemetry & Privacy](#telemetry--privacy).
 
-### CLI exit codes
+### Configuration schema migrations
 
-`starforge` uses stable, standardized process exit codes across all commands for scriptability and automated CI/CD integration:
+starforge stores its configuration in `~/.starforge/config.toml`. When a new
+release introduces a new schema version the CLI migrates the file automatically
+on first run.
 
-| Exit Code | Name | Description | Common Triggers |
-|---|---|---|---|
-| **0** | `SUCCESS` | Command completed successfully | Normal execution |
-| **1** | `GENERAL_FAILURE` | Unclassified runtime error | Unexpected execution panic or internal error |
-| **2** | `USAGE_ERROR` | Syntax or argument error | Missing required arg, invalid flag, bad correlation ID |
-| **3** | `CONFIG_ERROR` | Configuration error | Missing/corrupted `config.toml`, unsupported network |
-| **4** | `NETWORK_ERROR` | Network/RPC failure | Horizon or Soroban RPC unreachable, connection timeout |
-| **5** | `SIGNING_ERROR` | Cryptographic/signing error | Invalid secret key, wrong decryption passphrase |
-| **6** | `EXECUTION_ERROR` | Contract/build error | WASM build failure, Soroban transaction simulation revert |
-| **7** | `ENVIRONMENT_ERROR` | System environment error | Missing Docker/curl dependency, permission denied |
+**What happens during a migration:**
 
-In shell scripts, inspect `$?` to handle specific failures gracefully:
+1. A timestamped backup is written **before** any change is made:
+   ```
+   ~/.starforge/config.backup.v0.1753000000.toml
+   ```
+2. Each migration step is applied in order (v0 → v1, v1 → v2, …).
+3. The updated config is persisted.
+
+If the migration fails you can manually restore from the backup:
 
 ```bash
-starforge wallet show alice || {
-  rc=$?
-  if [ "$rc" -eq 5 ]; then
-    echo "Authentication failed: passphrase required"
-  elif [ "$rc" -eq 4 ]; then
-    echo "Network error: check RPC endpoint"
-  fi
-}
+cp ~/.starforge/config.backup.v0.<timestamp>.toml ~/.starforge/config.toml
 ```
+
+**Error types and what they mean:**
+
+| Error | Cause | Fix |
+|---|---|---|
+| `Config schema version 'X' is newer than this binary supports` | Config was written by a newer `starforge` | Upgrade `starforge` |
+| `Unrecognised config schema version 'X'` | Config version field was manually edited or corrupted | Restore from backup or delete `~/.starforge/config.toml` to reset |
+| `Failed to create backup of config vX before migration` | Backup write failed (disk full, permissions) | Free disk space or fix directory permissions |
+
+**For contributors — adding a new migration step:**
+
+1. Bump `CURRENT_CONFIG_VERSION` in `src/utils/config.rs`.
+2. Add a `fn migrate_vN_to_vM(config: &mut Config)` function.
+3. Append a `ConfigMigrationStep` entry to the `MIGRATION_STEPS` slice.
+4. Add tests to `tests/config_migrations.rs` covering the new step.
+
+
 
 ### Scaffold commands
 
@@ -568,6 +668,7 @@ StarForge has comprehensive documentation covering all aspects of the project:
 - **[docs/CORRELATION_IDS.md](docs/CORRELATION_IDS.md)** - Correlating structured logs across one invocation
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Config parsing, overlay merging, and validation rules
 - **[docs/WALLET_IMPORT_SECURITY.md](docs/WALLET_IMPORT_SECURITY.md)** - Limits enforced on untrusted wallet backups
+- **[docs/DEPLOYMENT_CHECKPOINTS.md](docs/DEPLOYMENT_CHECKPOINTS.md)** - Resumable and idempotent deployment operations, session checkpointing, and staleness detection
 - **[FUZZING_GUIDE.md](FUZZING_GUIDE.md)** - Property-based tests, fuzz targets, mutation testing
 
 ### ?? Navigation

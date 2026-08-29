@@ -176,6 +176,9 @@ export STARFORGE_TELEMETRY=false
 export STARFORGE_CONFIG_DIR=~/.starforge-dev
 ```
 
+### Secret Redaction & Security Logging
+StarForge enforces centralized secret redaction via `crate::utils::redaction::redact_secrets`. Tracing output streams (`RUST_LOG`) and CLI error output streams automatically sanitize Stellar secret keys (`S...`), hex private keys, BIP-39 mnemonic seed phrases, auth tokens (`Bearer`, `ghp_`, `sk-`), signed XDR transaction payloads, and embedded URL credentials before output. Existing helper functions (`redact_public_key`, `redact_secret_value`, `redact_signed_xdr`) delegate to this centralized engine.
+
 ### Development Workflow
 
 ```bash
@@ -1305,29 +1308,36 @@ starforge db stats
 
 ---
 
-## Standardized CLI Exit Codes
+## Configuration Schema Migrations
 
-StarForge maps all execution outcomes and error conditions to stable exit codes via `src/utils/exit_codes.rs`.
+StarForge configuration stored in `~/.starforge/config.toml` uses explicit, versioned schema migrations managed by `src/utils/config.rs`.
 
 ### Architecture
 
-- `ExitCode`: `#[repr(i32)]` enum (`Success = 0`, `GeneralFailure = 1`, `Usage = 2`, `Config = 3`, `Network = 4`, `Signing = 5`, `Execution = 6`, `Environment = 7`).
-- `determine_exit_code(&anyhow::Error)`: Inspects error messages, downcast error types, and cause chains to select the appropriate `ExitCode`.
-- `ExitCode::exit()`: Invokes `std::process::exit(code)`.
+- `CURRENT_CONFIG_VERSION`: Constant (`"1"`) defining the latest supported schema version.
+- `run_config_migrations()`: Entry point that compares the config version with `CURRENT_CONFIG_VERSION`.
+- `ConfigMigrationError`: Custom error enum with `FromFuture`, `UnknownVersion`, `StepFailed`, and `BackupFailed` variants.
+- `MigrationReport`: Detailed report returned with `from_version`, `to_version`, `steps_applied`, and `backup_path`.
 
-### Developer Guidelines
+### Safe Execution & Backup Policy
 
-When returning errors from command handlers:
-1. Prefer returning descriptive `anyhow::Result` errors with domain-specific keywords (`network`, `config`, `secret`, `wasm`, etc.).
-2. Do **not** call `std::process::exit()` directly inside command handlers; return an error up to `main()` so logging and telemetry complete cleanly.
-3. Add classification unit tests in `tests/cli_exit_codes.rs` if introducing new error domain patterns.
+Before any migration steps run, a timestamped backup is automatically created:
+`~/.starforge/config.backup.v<version>.<timestamp>.toml`. If backup creation fails, migration is immediately aborted to guarantee zero data loss.
+
+### Adding a New Migration Step
+
+1. Update `CURRENT_CONFIG_VERSION` in `src/utils/config.rs`.
+2. Implement `fn migrate_vN_to_vM(config: &mut Config)`.
+3. Add a new `ConfigMigrationStep` entry to `MIGRATION_STEPS` in `src/utils/config.rs`.
+4. Add integration tests in `tests/config_migrations.rs`.
+
+### Testing Config Migrations
+
+Run the integration test suite:
 
 ```bash
-# Run exit code tests
-cargo test --test cli_exit_codes
+cargo test --test config_migrations
 ```
-
----
 
 ## Contributing Guidelines
 

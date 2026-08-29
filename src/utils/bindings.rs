@@ -75,28 +75,19 @@ pub fn generate_bindings(wasm_path: &Path, language: BindingLanguage) -> Result<
         anyhow::bail!("No contract functions found in WASM metadata");
     }
 
-    match language {
-        BindingLanguage::Rust => Ok(generate_rust(&metadata)),
-        BindingLanguage::TypeScript => Ok(generate_typescript(&metadata)),
-        BindingLanguage::Python => Ok(generate_python(&metadata)),
-        BindingLanguage::Go => Ok(generate_go(&metadata)),
-    }
+    generate_from_metadata(&metadata, language)
 }
 
-#[cfg(test)]
-pub fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
-    let spec = contract_spec_section(wasm)?;
-    let cursor = Cursor::new(spec);
-    let entries = ScSpecEntry::read_xdr_iter(&mut Limited::new(
-        cursor,
-        Limits {
-            depth: 500,
-            len: 0x1000000,
-        },
-    ))
-    .collect::<std::result::Result<Vec<_>, _>>()
-    .context("Failed to decode contractspecv0 XDR metadata")?;
-    Ok(entries)
+pub fn generate_from_metadata(
+    metadata: &ContractMetadata,
+    language: BindingLanguage,
+) -> Result<String> {
+    match language {
+        BindingLanguage::Rust => Ok(generate_rust(metadata)),
+        BindingLanguage::TypeScript => Ok(generate_typescript(metadata)),
+        BindingLanguage::Python => Ok(generate_python(metadata)),
+        BindingLanguage::Go => Ok(generate_go(metadata)),
+    }
 }
 
 fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
@@ -337,7 +328,13 @@ fn generate_rust(metadata: &ContractMetadata) -> String {
         let params = function
             .inputs
             .iter()
-            .map(|input| format!("{}: {}", sanitize_ident(&input.name), rust_type(&input.type_name)))
+            .map(|input| {
+                format!(
+                    "{}: {}",
+                    sanitize_ident(&input.name),
+                    rust_type(&input.type_name)
+                )
+            })
             .collect::<Vec<_>>()
             .join(", ");
         let return_type = function
@@ -346,7 +343,7 @@ fn generate_rust(metadata: &ContractMetadata) -> String {
             .map(rust_type)
             .unwrap_or_else(|| "()".to_string());
         let comma = if params.is_empty() { "" } else { ", " };
-        
+
         out.push_str(&format!(
             "\tpub fn {rust_name}(&self{comma}{params}) -> Result<{return_type}> {{\n\
              \t\tlet mut cmd = Command::new(\"starforge\");\n\
@@ -385,7 +382,7 @@ fn generate_rust(metadata: &ContractMetadata) -> String {
          \t{\n\
          \t\tresult.parse().context(\"Failed to parse result\")\n\
          \t}\n\n\
-         }\n\n"
+         }\n\n",
     );
 
     for struct_def in &metadata.structs {
@@ -741,9 +738,12 @@ fn rust_type(type_name: &str) -> String {
         "I256" => "String".to_string(),
         _ => {
             // Handle complex types like Option<T>, Result<T, E>, Vec<T>, etc.
-            if type_name.starts_with("Option<") || type_name.starts_with("Result<") || 
-               type_name.starts_with("Vec<") || type_name.starts_with("Map<") ||
-               type_name.starts_with("BytesN<") {
+            if type_name.starts_with("Option<")
+                || type_name.starts_with("Result<")
+                || type_name.starts_with("Vec<")
+                || type_name.starts_with("Map<")
+                || type_name.starts_with("BytesN<")
+            {
                 type_name.to_string()
             } else {
                 // Assume it's a custom type
@@ -766,12 +766,12 @@ fn ts_type(type_name: &str) -> String {
         _ => {
             // Handle complex types
             if type_name.starts_with("Option<") {
-                let inner = &type_name[7..type_name.len()-1]; // Remove "Option<>"
+                let inner = &type_name[7..type_name.len() - 1]; // Remove "Option<>"
                 format!("{} | null", ts_type(inner))
             } else if type_name.starts_with("Result<") {
                 "any".to_string()
             } else if type_name.starts_with("Vec<") {
-                let inner = &type_name[4..type_name.len()-1]; // Remove "Vec<>"
+                let inner = &type_name[4..type_name.len() - 1]; // Remove "Vec<>"
                 format!("Array<{}>", ts_type(inner))
             } else if type_name.starts_with("Map<") {
                 "Record<string, any>".to_string()
@@ -801,12 +801,12 @@ fn python_type(type_name: &str) -> String {
         _ => {
             // Handle complex types
             if type_name.starts_with("Option<") {
-                let inner = &type_name[7..type_name.len()-1]; // Remove "Option<>"
+                let inner = &type_name[7..type_name.len() - 1]; // Remove "Option<>"
                 format!("Optional[{}]", python_type(inner))
             } else if type_name.starts_with("Result<") {
                 "Any".to_string()
             } else if type_name.starts_with("Vec<") {
-                let inner = &type_name[4..type_name.len()-1]; // Remove "Vec<>"
+                let inner = &type_name[4..type_name.len() - 1]; // Remove "Vec<>"
                 format!("List[{}]", python_type(inner))
             } else if type_name.starts_with("Map<") {
                 "Dict[str, Any]".to_string()
@@ -842,12 +842,12 @@ fn go_type(type_name: &str) -> String {
             // Handle complex types
             if type_name.starts_with("Option<") {
                 // In Go, we can use pointer types for optional
-                let inner = &type_name[7..type_name.len()-1]; // Remove "Option<>"
+                let inner = &type_name[7..type_name.len() - 1]; // Remove "Option<>"
                 format!("*{}", go_type(inner))
             } else if type_name.starts_with("Result<") {
                 "interface{}".to_string()
             } else if type_name.starts_with("Vec<") {
-                let inner = &type_name[4..type_name.len()-1]; // Remove "Vec<>"
+                let inner = &type_name[4..type_name.len() - 1]; // Remove "Vec<>"
                 format!("[]{}", go_type(inner))
             } else if type_name.starts_with("Map<") {
                 "map[string]interface{}".to_string()
@@ -861,6 +861,160 @@ fn go_type(type_name: &str) -> String {
                 type_name.to_string()
             }
         }
+    }
+}
+
+/// A complex fixture contract covering functions with multiple parameter
+/// types, structs, enums, events, Option, Result, Vec, and Map.
+pub fn complex_metadata() -> ContractMetadata {
+    ContractMetadata {
+        functions: vec![
+            ContractFunction {
+                name: "transfer".to_string(),
+                inputs: vec![
+                    ContractInput {
+                        name: "from".to_string(),
+                        type_name: "Address".to_string(),
+                    },
+                    ContractInput {
+                        name: "to".to_string(),
+                        type_name: "Address".to_string(),
+                    },
+                    ContractInput {
+                        name: "amount".to_string(),
+                        type_name: "u128".to_string(),
+                    },
+                    ContractInput {
+                        name: "memo".to_string(),
+                        type_name: "Option<String>".to_string(),
+                    },
+                ],
+                output: Some("Result<(), Error>".to_string()),
+            },
+            ContractFunction {
+                name: "balance_of".to_string(),
+                inputs: vec![ContractInput {
+                    name: "owner".to_string(),
+                    type_name: "Address".to_string(),
+                }],
+                output: Some("u128".to_string()),
+            },
+            ContractFunction {
+                name: "get_metadata".to_string(),
+                inputs: vec![],
+                output: Some("TokenMetadata".to_string()),
+            },
+            ContractFunction {
+                name: "batch_transfer".to_string(),
+                inputs: vec![
+                    ContractInput {
+                        name: "recipients".to_string(),
+                        type_name: "Vec<Address>".to_string(),
+                    },
+                    ContractInput {
+                        name: "amounts".to_string(),
+                        type_name: "Vec<u128>".to_string(),
+                    },
+                ],
+                output: Some("Vec<Result<(), Error>>".to_string()),
+            },
+            ContractFunction {
+                name: "set_config".to_string(),
+                inputs: vec![
+                    ContractInput {
+                        name: "key".to_string(),
+                        type_name: "Symbol".to_string(),
+                    },
+                    ContractInput {
+                        name: "value".to_string(),
+                        type_name: "Bytes".to_string(),
+                    },
+                ],
+                output: None,
+            },
+        ],
+        structs: vec![
+            ContractStruct {
+                name: "TokenMetadata".to_string(),
+                fields: vec![
+                    ContractField {
+                        name: "name".to_string(),
+                        type_name: "String".to_string(),
+                    },
+                    ContractField {
+                        name: "symbol".to_string(),
+                        type_name: "String".to_string(),
+                    },
+                    ContractField {
+                        name: "decimals".to_string(),
+                        type_name: "u32".to_string(),
+                    },
+                    ContractField {
+                        name: "total_supply".to_string(),
+                        type_name: "u128".to_string(),
+                    },
+                    ContractField {
+                        name: "admin".to_string(),
+                        type_name: "Address".to_string(),
+                    },
+                ],
+            },
+            ContractStruct {
+                name: "Allowance".to_string(),
+                fields: vec![
+                    ContractField {
+                        name: "owner".to_string(),
+                        type_name: "Address".to_string(),
+                    },
+                    ContractField {
+                        name: "spender".to_string(),
+                        type_name: "Address".to_string(),
+                    },
+                    ContractField {
+                        name: "amount".to_string(),
+                        type_name: "u128".to_string(),
+                    },
+                    ContractField {
+                        name: "expires_at".to_string(),
+                        type_name: "Option<u64>".to_string(),
+                    },
+                ],
+            },
+        ],
+        enums: vec![ContractEnum {
+            name: "TokenError".to_string(),
+            variants: vec![
+                ContractVariant {
+                    name: "InsufficientBalance".to_string(),
+                    type_name: None,
+                },
+                ContractVariant {
+                    name: "Unauthorized".to_string(),
+                    type_name: Some("Address".to_string()),
+                },
+                ContractVariant {
+                    name: "InvalidAmount".to_string(),
+                    type_name: Some("u128".to_string()),
+                },
+            ],
+        }],
+        events: vec![ContractEvent {
+            name: "Transfer".to_string(),
+            fields: vec![
+                ContractField {
+                    name: "from".to_string(),
+                    type_name: "Address".to_string(),
+                },
+                ContractField {
+                    name: "to".to_string(),
+                    type_name: "Address".to_string(),
+                },
+                ContractField {
+                    name: "amount".to_string(),
+                    type_name: "u128".to_string(),
+                },
+            ],
+        }],
     }
 }
 
