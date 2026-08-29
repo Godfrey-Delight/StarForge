@@ -136,6 +136,30 @@ pub async fn check_horizon_endpoint(horizon_url: &str) -> bool {
         .unwrap_or(false)
 }
 
+#[derive(Debug, Deserialize)]
+struct HorizonRoot {
+    network_passphrase: String,
+}
+
+/// Read the network identity advertised by Horizon.
+pub async fn fetch_network_passphrase(network: &str) -> Result<String> {
+    let endpoint = horizon_url(network)?;
+    let url = format!("{}/", endpoint.trim_end_matches('/'));
+    let response = HTTP_CLIENT
+        .get(&url)
+        .send()
+        .await
+        .with_context(|| format!("Could not reach Horizon endpoint '{}'", endpoint))?;
+    if !response.status().is_success() {
+        anyhow::bail!("Horizon endpoint '{}' returned HTTP {}", endpoint, response.status());
+    }
+    let root: HorizonRoot = response
+        .json()
+        .await
+        .with_context(|| format!("Horizon endpoint '{}' did not provide network identity", endpoint))?;
+    Ok(root.network_passphrase)
+}
+
 pub async fn check_soroban_rpc(soroban_url: &str) -> bool {
     let req = serde_json::json!({
         "jsonrpc": "2.0",
@@ -397,6 +421,7 @@ pub async fn submit_payment_with_signing(
     request: &wallet_signer::SigningRequest,
     network: &str,
 ) -> Result<TransactionSubmitResult> {
+    crate::utils::network_guard::verify(network).await?;
     let signed_xdr = wallet_signer::sign_transaction_xdr(transaction_xdr, request)?;
 
     let horizon = horizon_url(network)?;
