@@ -18,6 +18,10 @@ Think of it as the "Hardhat or Foundry" experience for the Stellar ecosystem, bu
 
 This project is actively maintained and participates in the [Stellar Wave Program](https://www.drips.network/wave/stellar) on Drips â€” a monthly open-source contribution sprint where contributors earn rewards for merged pull requests.
 
+Security architecture and trust-boundary assumptions are documented in the
+[StarForge threat model](./SECURITY_THREAT_MODEL.md). Report newly discovered
+security gaps as issues tagged `security` and include the affected boundary.
+
 ---
 
 ## Features
