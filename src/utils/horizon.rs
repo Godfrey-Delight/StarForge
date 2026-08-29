@@ -14,8 +14,39 @@ fn build_http_client(timeout: Duration) -> Result<Client> {
 }
 
 static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
-    build_http_client(Duration::from_secs(30)).expect("Failed to create shared Horizon HTTP client")
+    build_http_client(Duration::from_secs(10)).expect("Failed to create shared Horizon HTTP client")
 });
+
+pub async fn send_with_retry<F, Fut>(make_request: F) -> Result<reqwest::Response>
+where
+    F: Fn() -> Fut,
+    Fut: std::future::Future<Output = std::result::Result<reqwest::Response, reqwest::Error>>,
+{
+    const MAX_RETRIES: u32 = 3;
+    let mut backoff = Duration::from_millis(150);
+
+    for attempt in 1..=MAX_RETRIES {
+        match make_request().await {
+            Ok(res)
+                if (res.status().is_server_error()
+                    || res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS)
+                    && attempt < MAX_RETRIES =>
+            {
+                tokio::time::sleep(backoff).await;
+                backoff *= 2;
+            }
+            Ok(res) => return Ok(res),
+            Err(e) => {
+                if attempt == MAX_RETRIES {
+                    return Err(e).context("Horizon request failed after retries");
+                }
+                tokio::time::sleep(backoff).await;
+                backoff *= 2;
+            }
+        }
+    }
+    anyhow::bail!("Exceeded maximum Horizon retries")
+}
 
 pub fn network_config(network: &str) -> Result<config::NetworkConfig> {
     let cfg = config::load()?;
@@ -53,7 +84,7 @@ pub async fn fund_account(public_key: &str, network: &str) -> Result<()> {
     let separator = if friendbot.contains('?') { '&' } else { '?' };
     let url = format!("{}{}addr={}", friendbot, separator, public_key);
 
-    let res = HTTP_CLIENT.get(&url).send().await.with_context(|| {
+    let res = send_with_retry(|| HTTP_CLIENT.get(&url).send()).await.with_context(|| {
         format!(
             "Could not reach Friendbot on '{}'. Check your internet connection.",
             network
@@ -83,9 +114,7 @@ pub async fn fund_account(public_key: &str, network: &str) -> Result<()> {
 pub async fn fetch_account(public_key: &str, network: &str) -> Result<AccountResponse> {
     let horizon = horizon_url(network)?;
     let url = format!("{}/accounts/{}", horizon.trim_end_matches('/'), public_key);
-    let res = HTTP_CLIENT
-        .get(&url)
-        .send()
+    let res = send_with_retry(|| HTTP_CLIENT.get(&url).send())
         .await
         .with_context(|| {
             format!(
