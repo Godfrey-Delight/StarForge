@@ -295,6 +295,7 @@ fn test_boundary_trusted_publisher_in_config() {
             r#"
 version = "1"
 network = "testnet"
+wallets = []
 
 [networks.testnet]
 horizon_url = "https://horizon-testnet.stellar.org"
@@ -418,6 +419,7 @@ fn test_failure_untrusted_publisher_key_rejected_when_list_configured() {
             r#"
 version = "1"
 network = "testnet"
+wallets = []
 
 [networks.testnet]
 horizon_url = "https://horizon-testnet.stellar.org"
