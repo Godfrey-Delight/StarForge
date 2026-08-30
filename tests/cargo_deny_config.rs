@@ -54,9 +54,8 @@ fn deny_toml_has_advisories_section() {
         table.contains_key("advisories"),
         "deny.toml must contain an [advisories] section"
     );
-    let advisories = table["advisories"]
-        .as_table()
-        .expect("[advisories] must be a table");
+    let advisories =
+        table["advisories"].as_table().expect("[advisories] must be a table");
     assert!(
         advisories.contains_key("version"),
         "[advisories] must specify a version"
@@ -79,9 +78,8 @@ fn deny_toml_has_licenses_section() {
         table.contains_key("licenses"),
         "deny.toml must contain a [licenses] section"
     );
-    let licenses = table["licenses"]
-        .as_table()
-        .expect("[licenses] must be a table");
+    let licenses =
+        table["licenses"].as_table().expect("[licenses] must be a table");
     assert!(
         licenses.contains_key("allow"),
         "[licenses] must define an allow-list of accepted licenses"
@@ -129,9 +127,8 @@ fn deny_toml_has_sources_section() {
         table.contains_key("sources"),
         "deny.toml must contain a [sources] section"
     );
-    let sources = table["sources"]
-        .as_table()
-        .expect("[sources] must be a table");
+    let sources =
+        table["sources"].as_table().expect("[sources] must be a table");
     assert!(
         sources.contains_key("unknown-registry"),
         "[sources] must deny unknown registries"
@@ -202,10 +199,8 @@ fn advisory_ignores_are_documented() {
         .as_table()
         .expect("[advisories] must exist");
     if let Some(ignore) = advisories.get("ignore") {
-        let entries = ignore
-            .as_array()
-            .expect("ignore must be an array")
-            .len();
+        let entries =
+            ignore.as_array().expect("ignore must be an array").len();
         // If there are ignored advisories, ensure there are corresponding
         // comment lines explaining each one.  We check that the raw text
         // contains at least as many "#" comment lines before the ignore
