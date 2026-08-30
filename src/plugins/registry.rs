@@ -230,6 +230,15 @@ pub struct InstalledPlugin {
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
+    /// Verified publisher handle/identity, if verified
+    #[serde(default)]
+    pub publisher: Option<String>,
+    /// Verified publisher public key, if signed
+    #[serde(default)]
+    pub publisher_key: Option<String>,
+    /// Verification status
+    #[serde(default)]
+    pub verification_status: crate::plugins::verifier::VerificationStatus,
 }
 
 /// Resolve the description to display for a plugin: prefer the registry's
@@ -356,6 +365,7 @@ pub fn install_plugin(
         plugin_version: plugin_version.to_string(),
         installed_at: Some(now),
         commands,
+        description: description.to_string(),
         publisher,
         publisher_key,
         verification_status,

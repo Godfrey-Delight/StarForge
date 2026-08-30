@@ -90,7 +90,7 @@ pub fn generate_from_metadata(
     }
 }
 
-fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
+pub fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
     let spec = contract_spec_section(wasm)?;
     let cursor = Cursor::new(spec);
     let entries = ScSpecEntry::read_xdr_iter(&mut Limited::new(
