@@ -180,6 +180,9 @@ cargo fmt --all --check
 # Linter check
 cargo clippy -- -D warnings
 
+# Doctests (compiles examples in doc comments)
+cargo test --doc
+
 # Dependency security check (requires cargo-deny)
 cargo install cargo-deny
 cargo deny check
@@ -364,7 +367,8 @@ For detailed code style expectations, see [CODE_STYLE_STANDARDS.md](CODE_STYLE_S
 /// # Returns
 /// Description of return value
 ///
-/// # Example
+/// # Examples
+///
 /// ```
 /// let result = my_function(42);
 /// assert_eq!(result, 43);
@@ -374,6 +378,7 @@ pub fn my_function(arg1: i32) -> i32 {
 }
 ```
 
+- **Add compilable doctests** to public utility functions (see [DOCTEST_GUIDELINES.md](DOCTEST_GUIDELINES.md))
 - Keep README and other docs up-to-date with your changes
 - Update CHANGELOG if your change is user-facing
 
@@ -385,10 +390,11 @@ Run this before every commit to catch issues early:
 cargo fmt --all && \
   cargo build --locked && \
   cargo test --locked && \
+  cargo test --doc --locked && \
   cargo clippy --locked -- -D warnings
 ```
 
-All of these are checked in CI.
+All of these are checked in CI. See [DOCTEST_GUIDELINES.md](DOCTEST_GUIDELINES.md) for how to write and maintain doctests.
 
 ---
 
