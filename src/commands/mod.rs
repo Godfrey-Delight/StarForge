@@ -77,6 +77,7 @@ pub mod orchestrate;
 pub mod perf;
 pub mod pipeline_builder;
 pub mod plugin;
+pub mod pr;
 pub mod privacy;
 pub mod project;
 pub mod prompts;
