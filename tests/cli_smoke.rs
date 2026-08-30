@@ -75,6 +75,39 @@ fn network_show_exits_zero() {
 }
 
 #[test]
+fn network_show_json_uses_stable_envelope() {
+    let home = isolated_home();
+    let output = starforge(home.path())
+        .args(["--json", "network", "show"])
+        .output()
+        .expect("spawn network show --json");
+    assert_success(&output, "starforge --json network show");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON output");
+    assert_eq!(parsed["version"], 1);
+    assert_eq!(parsed["ok"], true);
+    assert!(parsed["data"].is_object());
+}
+
+#[test]
+fn invalid_network_switch_json_returns_error_envelope() {
+    let home = isolated_home();
+    let output = starforge(home.path())
+        .args(["--json", "network", "switch", "does-not-exist-xyz"])
+        .output()
+        .expect("spawn network switch with invalid target");
+
+    assert!(!output.status.success(), "invalid network should fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let parsed: serde_json::Value = serde_json::from_str(&stderr).expect("error JSON output");
+    assert_eq!(parsed["version"], 1);
+    assert_eq!(parsed["ok"], false);
+    assert!(parsed["error"]["code"].is_string());
+    assert!(parsed["error"]["message"].is_string());
+}
+
+#[test]
 fn wallet_list_exits_zero() {
     let home = isolated_home();
     let output = starforge(home.path())
