@@ -195,7 +195,7 @@ pub fn prompt_passphrase_with_inputs(
     // Secure input alternative: let automated pipelines supply a fresh
     // passphrase via env var instead of typing it at an interactive prompt.
     if let Ok(pwd) = std::env::var(ENV_PASSPHRASE) {
-        return validate_new_passphrase(&pwd, strict, user_inputs);
+        return validate_new_passphrase(&pwd, strict, user_inputs).map(Zeroizing::new);
     }
 
     interactive::ensure_interactive(
@@ -666,6 +666,8 @@ mod tests {
         };
         let result = encrypt_secret("password", "STEST", Some(&bad_kdf));
         assert!(result.is_err());
+    }
+
     // ── CI / non-interactive prompting ───────────────────────────────────────
 
     fn clear_prompt_env() {
@@ -697,7 +699,7 @@ mod tests {
         std::env::set_var(ENV_PASSWORD, "correct-horse-battery-staple");
 
         let pwd = prompt_password("Enter password", false).unwrap();
-        assert_eq!(pwd, "correct-horse-battery-staple");
+        assert_eq!(*pwd, "correct-horse-battery-staple");
 
         clear_prompt_env();
     }
@@ -739,7 +741,7 @@ mod tests {
         std::env::set_var(ENV_PASSPHRASE, "orchid-river-copper-harbor");
 
         let pwd = prompt_passphrase("New passphrase", false).unwrap();
-        assert_eq!(pwd, "orchid-river-copper-harbor");
+        assert_eq!(*pwd, "orchid-river-copper-harbor");
 
         clear_prompt_env();
     }

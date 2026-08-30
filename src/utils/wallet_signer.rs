@@ -129,7 +129,10 @@ pub fn prompt_hardware_confirmation(
 }
 
 /// Resolve a plaintext secret key from a wallet entry, decrypting when needed.
-pub fn resolve_local_secret(wallet: &config::WalletEntry, wallet_name: &str) -> Result<Zeroizing<String>> {
+pub fn resolve_local_secret(
+    wallet: &config::WalletEntry,
+    wallet_name: &str,
+) -> Result<Zeroizing<String>> {
     let sk = wallet.secret_key.as_ref().ok_or_else(|| {
         anyhow::anyhow!(
             "Wallet '{}' has no local secret key. Use --hardware ledger or --hardware trezor.",
@@ -145,12 +148,14 @@ pub fn resolve_local_secret(wallet: &config::WalletEntry, wallet_name: &str) -> 
         &format!("Enter password to decrypt wallet '{}'", wallet_name),
         false,
     )?;
-    Ok(Zeroizing::new(crypto::decrypt_secret(&pwd, sk).map_err(|_| {
-        anyhow::anyhow!(
-            "Incorrect password or unable to decrypt wallet '{}'.",
-            wallet_name
-        )
-    })?))
+    Ok(Zeroizing::new(crypto::decrypt_secret(&pwd, sk).map_err(
+        |_| {
+            anyhow::anyhow!(
+                "Incorrect password or unable to decrypt wallet '{}'.",
+                wallet_name
+            )
+        },
+    )?))
 }
 
 /// Sign a base64-encoded transaction XDR using local or hardware credentials.

@@ -290,7 +290,11 @@ fn handle_restore(args: RestoreArgs) -> Result<()> {
     } else {
         None
     };
-    let extracted = backup::restore_backup(&args.id, &args.dest, passphrase.as_deref().map(|s| s.as_str()))?;
+    let extracted = backup::restore_backup(
+        &args.id,
+        &args.dest,
+        passphrase.as_deref().map(|s| s.as_str()),
+    )?;
     p::kv("Files restored", &extracted.len().to_string());
     for f in &extracted {
         println!("  - {}", f);
@@ -310,7 +314,11 @@ fn handle_restore_pit(args: RestorePitArgs) -> Result<()> {
     } else {
         None
     };
-    let extracted = backup::restore_backup(&at.id, &args.dest, passphrase.as_deref().map(|s| s.as_str()))?;
+    let extracted = backup::restore_backup(
+        &at.id,
+        &args.dest,
+        passphrase.as_deref().map(|s| s.as_str()),
+    )?;
     p::kv("Files restored", &extracted.len().to_string());
     p::success("Point-in-time recovery complete");
     Ok(())
@@ -417,7 +425,10 @@ async fn handle_contract_state(args: ContractStateArgs) -> Result<()> {
         &args.region,
     )?;
     p::step(3, 3, "Verifying backup manifest...");
-    let manifest = backup::verify_contract_state_backup(&record.id, passphrase.as_deref().map(|s| s.as_str()))?;
+    let manifest = backup::verify_contract_state_backup(
+        &record.id,
+        passphrase.as_deref().map(|s| s.as_str()),
+    )?;
 
     p::kv("Backup ID", &record.id);
     p::kv("Contract", &manifest.contract_id);
@@ -440,7 +451,8 @@ fn handle_verify_state(args: VerifyArgs) -> Result<()> {
     } else {
         None
     };
-    let manifest = backup::verify_contract_state_backup(&args.id, passphrase.as_deref().map(|s| s.as_str()))?;
+    let manifest =
+        backup::verify_contract_state_backup(&args.id, passphrase.as_deref().map(|s| s.as_str()))?;
     p::kv("Backup ID", &args.id);
     p::kv("Contract", &manifest.contract_id);
     p::kv("Manifest checksum", &manifest.checksum);

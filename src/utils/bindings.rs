@@ -75,10 +75,9 @@ pub fn generate_bindings(wasm_path: &Path, language: BindingLanguage) -> Result<
         anyhow::bail!("No contract functions found in WASM metadata");
     }
 
-generate_from_metadata(&metadata, language)
+    generate_from_metadata(&metadata, language)
 }
 
-pub fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
 pub fn generate_from_metadata(
     metadata: &ContractMetadata,
     language: BindingLanguage,

@@ -2385,12 +2385,15 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_publish_template_versioned_stores_by_version() {
+    #[tokio::test]
+    async fn test_publish_template_versioned_stores_by_version() {
         let tmp = tempdir().unwrap();
         let home = tmp.path().join("home");
+        let config_dir = home.join(".starforge");
         std::env::set_var("HOME", home.as_os_str());
-        let registry_dir = home.join(".starforge").join("templates");
+        std::env::set_var("USERPROFILE", home.as_os_str());
+        std::env::set_var(crate::utils::config::CONFIG_DIR_ENV, &config_dir);
+        let registry_dir = config_dir.join("templates");
         fs::create_dir_all(&registry_dir).unwrap();
         fs::write(
             registry_dir.join("registry.json"),
@@ -2401,52 +2404,50 @@ mod tests {
         let tpl_dir = tmp.path().join("template");
         make_valid_template(&tpl_dir);
 
-        futures::executor::block_on(async {
-            publish_template_versioned(
-                &tpl_dir,
-                "my-template".to_string(),
-                "A test template".to_string(),
-                "Alice".to_string(),
-                vec!["defi".to_string()],
-                "1.0.0".to_string(),
-                Some("0.1.0".to_string()),
-                Some("1.0.0".to_string()),
-                Some("MIT".to_string()),
-                Some("https://example.com".to_string()),
-                Some("https://docs.example.com".to_string()),
-                Some("https://homepage.example.com".to_string()),
-            )
+        publish_template_versioned(
+            &tpl_dir,
+            "my-template".to_string(),
+            "A test template".to_string(),
+            "Alice".to_string(),
+            vec!["defi".to_string()],
+            "1.0.0".to_string(),
+            Some("0.1.0".to_string()),
+            Some("1.0.0".to_string()),
+            Some("MIT".to_string()),
+            Some("https://example.com".to_string()),
+            Some("https://docs.example.com".to_string()),
+            Some("https://homepage.example.com".to_string()),
+        )
+        .await
+        .unwrap();
+
+        let storage = home.join(".starforge").join("templates").join("storage");
+        assert!(storage.join("my-template").join("1.0.0").exists());
+
+        publish_template_versioned(
+            &tpl_dir,
+            "my-template".to_string(),
+            "A test template".to_string(),
+            "Alice".to_string(),
+            vec!["defi".to_string()],
+            "1.1.0".to_string(),
+            Some("0.1.0".to_string()),
+            Some("1.0.0".to_string()),
+            Some("MIT".to_string()),
+            Some("https://example.com".to_string()),
+            Some("https://docs.example.com".to_string()),
+            Some("https://homepage.example.com".to_string()),
+        )
+        .await
+        .unwrap();
+
+        let latest = get_template("my-template").await.unwrap();
+        assert_eq!(latest.version, "1.1.0");
+
+        let older = get_template_by_name_and_version("my-template", Some("1.0.0"))
             .await
             .unwrap();
-
-            let storage = home.join(".starforge").join("templates").join("storage");
-            assert!(storage.join("my-template").join("1.0.0").exists());
-
-            publish_template_versioned(
-                &tpl_dir,
-                "my-template".to_string(),
-                "A test template".to_string(),
-                "Alice".to_string(),
-                vec!["defi".to_string()],
-                "1.1.0".to_string(),
-                Some("0.1.0".to_string()),
-                Some("1.0.0".to_string()),
-                Some("MIT".to_string()),
-                Some("https://example.com".to_string()),
-                Some("https://docs.example.com".to_string()),
-                Some("https://homepage.example.com".to_string()),
-            )
-            .await
-            .unwrap();
-
-            let latest = get_template("my-template").await.unwrap();
-            assert_eq!(latest.version, "1.1.0");
-
-            let older = get_template_by_name_and_version("my-template", Some("1.0.0"))
-                .await
-                .unwrap();
-            assert_eq!(older.version, "1.0.0");
-        });
+        assert_eq!(older.version, "1.0.0");
     }
 
     #[test]
