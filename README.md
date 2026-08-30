@@ -483,31 +483,37 @@ starforge/
 
 StarForge values your privacy.
 
-### Local-Only Telemetry Guarantee
-To help improve CLI usability, starforge collects anonymous usage telemetry (such as command names and execution times). This telemetry data is **stored purely locally** at `~/.starforge/data/telemetry.log`. **No network requests are ever made** for telemetry transmission; your telemetry data never leaves your machine.
+### Default: Off, Auditable, and Resettable
+StarForge does not collect telemetry by default. It only records local anonymous usage data after you explicitly opt in. The exact payload is stored locally at `~/.starforge/data/telemetry.log`, and it is never sent anywhere without a separate explicit opt-in.
 
-### Explicit Opt-Out Methods
-You can easily disable telemetry at any time using one of three methods:
+### Opt-In Methods
+Enable telemetry at any time with one of these methods:
 
 1. **Config Command:**
    ```bash
-   starforge config set telemetry.enabled false
+   starforge config set telemetry.enabled true
    ```
 
 2. **Telemetry Subcommand:**
    ```bash
-   starforge telemetry disable
+   starforge telemetry enable
    ```
 
 3. **Environment Variable:**
-   Set the `STARFORGE_TELEMETRY` environment variable to `false` or `0` in your shell profile:
+   Set the `STARFORGE_TELEMETRY` environment variable to `true` or `1` in your shell profile:
    ```bash
-   export STARFORGE_TELEMETRY=false
+   export STARFORGE_TELEMETRY=true
    ```
 
-To inspect your current telemetry status:
+To inspect your current telemetry status and the exact last payload:
 ```bash
 starforge telemetry status
+starforge telemetry payload
+```
+
+To erase all local telemetry and the anonymous ID:
+```bash
+starforge telemetry reset
 ```
 
 ---

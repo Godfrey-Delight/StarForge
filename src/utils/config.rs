@@ -710,7 +710,7 @@ impl Default for Config {
             wallets: vec![],
             networks,
             plugin_trust: PluginTrustConfig::default(),
-            telemetry_enabled: Some(true),
+            telemetry_enabled: Some(false),
             wallet_encryption: None,
             install_id: None,
             feature_flags: FeatureFlagsConfig::default(),
