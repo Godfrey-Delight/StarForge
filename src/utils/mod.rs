@@ -44,6 +44,7 @@ pub mod approval_engine;
 pub mod audit;
 pub mod audit_bundle;
 pub mod backup;
+pub mod batch_forecast;
 pub mod benchmarking;
 pub mod bindings;
 pub mod bridge;
