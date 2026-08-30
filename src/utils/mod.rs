@@ -87,6 +87,7 @@ pub mod docs;
 pub mod documentation;
 pub mod event_monitoring;
 pub mod feature_flags;
+pub mod fs_permissions;
 pub mod gas_analyzer;
 pub mod gas_report;
 pub mod governance;
