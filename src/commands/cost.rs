@@ -469,8 +469,8 @@ async fn forecast_batch(
     }
 
     println!();
-    let forecast = bf::estimate_batch_forecast(&manifest, default_network, margin, inclusion_fee)
-        .await?;
+    let forecast =
+        bf::estimate_batch_forecast(&manifest, default_network, margin, inclusion_fee).await?;
 
     let headers = &[
         "#",
@@ -515,7 +515,10 @@ async fn forecast_batch(
             forecast.min_fee_stroops, forecast.max_fee_stroops, forecast.median_fee_stroops
         ),
     );
-    p::kv("Average per invoke", &format!("{} stroops", forecast.avg_fee_stroops));
+    p::kv(
+        "Average per invoke",
+        &format!("{} stroops", forecast.avg_fee_stroops),
+    );
     p::kv_accent(
         "Estimated batch total",
         &format!(
@@ -550,7 +553,8 @@ async fn forecast_batch(
         p::warn(warning);
     }
 
-    if enforce && (forecast.would_exceed_budget || forecast.items.iter().any(|e| e.would_exceed_cap))
+    if enforce
+        && (forecast.would_exceed_budget || forecast.items.iter().any(|e| e.would_exceed_cap))
     {
         anyhow::bail!(
             "Batch forecast exceeds the configured budget or a per-invoke fee cap (--enforce)"

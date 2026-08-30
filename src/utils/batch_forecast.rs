@@ -204,10 +204,7 @@ pub fn load_manifest(path: &Path) -> Result<InvokeBatchManifest> {
             "Unsupported batch manifest extension '.{}'. Use .json, .yaml, or .yml.",
             ext
         ),
-        None => bail!(
-            "Batch manifest '{}' has no file extension.",
-            path.display()
-        ),
+        None => bail!("Batch manifest '{}' has no file extension.", path.display()),
     };
     validate(&manifest)?;
     Ok(manifest)
@@ -240,7 +237,10 @@ pub fn validate(manifest: &InvokeBatchManifest) -> Result<()> {
             bail!("invokes[{}].function must not be empty.", index);
         }
         if invoke.max_fee_stroops.is_some_and(|max| max == 0) {
-            bail!("invokes[{}].max_fee_stroops must be positive when set.", index);
+            bail!(
+                "invokes[{}].max_fee_stroops must be positive when set.",
+                index
+            );
         }
         for (arg_index, arg) in invoke.args.iter().enumerate() {
             if arg.value.is_empty() {
@@ -397,9 +397,7 @@ pub fn evaluate_item(
         errors.push(error);
     }
 
-    let would_exceed_cap = planned
-        .max_fee_stroops
-        .is_some_and(|cap| fee_stroops > cap);
+    let would_exceed_cap = planned.max_fee_stroops.is_some_and(|cap| fee_stroops > cap);
     if would_exceed_cap {
         variance_reasons.push(format!(
             "fee exceeds the {} stroop per-call cap",
@@ -476,16 +474,8 @@ pub fn aggregate_forecast(
     } else {
         0
     };
-    let min_fee_stroops = items
-        .iter()
-        .map(|item| item.fee_stroops)
-        .min()
-        .unwrap_or(0);
-    let max_fee_stroops = items
-        .iter()
-        .map(|item| item.fee_stroops)
-        .max()
-        .unwrap_or(0);
+    let min_fee_stroops = items.iter().map(|item| item.fee_stroops).min().unwrap_or(0);
+    let max_fee_stroops = items.iter().map(|item| item.fee_stroops).max().unwrap_or(0);
 
     let total_fee_xlm = total_fee_stroops as f64 / sr::STROOPS_PER_XLM;
     let would_exceed_budget = budget_xlm.is_some_and(|budget| total_fee_xlm > budget);
@@ -709,9 +699,10 @@ invokes:
 
     #[test]
     fn rejects_negative_budget() {
-        let manifest: InvokeBatchManifest =
-            serde_json::from_str(r#"{"version":1,"budget_xlm":-1.0,"invokes":[{"contract_id":"C","function":"f"}]}"#)
-                .unwrap();
+        let manifest: InvokeBatchManifest = serde_json::from_str(
+            r#"{"version":1,"budget_xlm":-1.0,"invokes":[{"contract_id":"C","function":"f"}]}"#,
+        )
+        .unwrap();
         assert!(validate(&manifest).is_err());
     }
 
@@ -809,12 +800,7 @@ invokes:
 
     #[test]
     fn simulated_fee_is_used_and_not_flagged() {
-        let item = evaluate_item(
-            &planned(0, "ping", &[]),
-            Some(58_181),
-            vec![],
-            None,
-        );
+        let item = evaluate_item(&planned(0, "ping", &[]), Some(58_181), vec![], None);
         assert_eq!(item.source, EstimateSource::Simulated);
         assert_eq!(item.fee_stroops, 58_181);
         assert!(!item.high_variance);
@@ -848,7 +834,10 @@ invokes:
         let item = evaluate_item(&planned(0, "ping", &[]), Some(0), vec![], None);
         assert_eq!(item.source, EstimateSource::Simulated);
         assert_eq!(item.fee_stroops, 0);
-        assert!(item.warnings.iter().any(|w| w.contains("zero resource fee")));
+        assert!(item
+            .warnings
+            .iter()
+            .any(|w| w.contains("zero resource fee")));
     }
 
     #[test]
@@ -872,8 +861,12 @@ invokes:
             fee_stroops: fee,
             fee_xlm: fee as f64 / sr::STROOPS_PER_XLM,
             source,
-            high_variance: false,
-            variance_reasons: vec![],
+            high_variance: source == EstimateSource::Heuristic,
+            variance_reasons: if source == EstimateSource::Heuristic {
+                vec!["simulation unavailable".to_string()]
+            } else {
+                vec![]
+            },
             warnings: vec![],
             errors: vec![],
             max_fee_stroops: None,
@@ -912,12 +905,10 @@ invokes:
         assert_eq!(forecast.simulated_count, 2);
         assert_eq!(forecast.heuristic_count, 1);
         assert_eq!(forecast.high_variance_count, 1);
-        assert!(
-            forecast
-                .warnings
-                .iter()
-                .any(|w| w.contains("1 of 3 calls could not be simulated"))
-        );
+        assert!(forecast
+            .warnings
+            .iter()
+            .any(|w| w.contains("1 of 3 calls could not be simulated")));
     }
 
     #[test]
@@ -969,10 +960,9 @@ invokes:
 
     #[tokio::test]
     async fn batch_forecast_rejects_out_of_range_margin() {
-        let manifest: InvokeBatchManifest = serde_json::from_str(
-            r#"{"version":1,"invokes":[{"contract_id":"C","function":"f"}]}"#,
-        )
-        .unwrap();
+        let manifest: InvokeBatchManifest =
+            serde_json::from_str(r#"{"version":1,"invokes":[{"contract_id":"C","function":"f"}]}"#)
+                .unwrap();
         let result = estimate_batch_forecast(&manifest, "testnet", 2_000, 100).await;
         let err = result.unwrap_err().to_string();
         assert!(err.contains("margin"));
