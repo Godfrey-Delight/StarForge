@@ -57,7 +57,9 @@ impl ExitCode {
             Self::Network => "Network connectivity, RPC node, or Horizon request failure",
             Self::Signing => "Cryptographic keypair, secret decryption, or signature failure",
             Self::Execution => "Contract WASM compilation, verification, or transaction revert",
-            Self::Environment => "Missing system dependency, permission denied, or unsupported host OS/arch",
+            Self::Environment => {
+                "Missing system dependency, permission denied, or unsupported host OS/arch"
+            }
         }
     }
 
@@ -121,7 +123,8 @@ pub fn determine_exit_code(err: &anyhow::Error) -> ExitCode {
         || msg.contains("timeout")
         || msg.contains("http error")
         || msg.contains("failed to fetch")
-        || msg.contains("network") && (msg.contains("failed") || msg.contains("unreachable") || msg.contains("connect"))
+        || msg.contains("network")
+            && (msg.contains("failed") || msg.contains("unreachable") || msg.contains("connect"))
     {
         return ExitCode::Network;
     }
