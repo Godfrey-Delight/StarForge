@@ -23,6 +23,7 @@ cargo test
 
 | Task | Command |
 |------|---------|
+| Run preflight gates | `./scripts/preflight-pr.sh` |
 | Build (debug) | `cargo build` |
 | Build (release) | `cargo build --release` |
 | Run tests | `cargo test` |
@@ -35,42 +36,52 @@ cargo test
 
 ## Before Submitting a PR
 
-The CI pipeline checks these things. Verify locally first:
+StarForge requires all CI status checks to pass and branches to be conflict-free against `master`.
+
+### Fast Path: Local Preflight Script
+
+Run the automated preflight script to verify all merge gates locally:
 
 ```bash
-# 1. Format your code (required)
+# Standard merge gates (formatting, compilation, clippy, JSON contracts, unit & smoke tests)
+./scripts/preflight-pr.sh
+
+# Quick mode during development
+./scripts/preflight-pr.sh --quick
+
+# Full workspace test suite
+./scripts/preflight-pr.sh --all
+```
+
+### Manual Step-by-Step Verification
+
+```bash
+# 1. Ensure branch is rebased on master (conflict-free)
+git fetch origin
+git rebase origin/master
+
+# 2. Format your code (required)
 cargo fmt --all
 
-# 2. Run all tests (required)
+# 3. Run all tests (required)
 cargo test --locked
 
-# 3. Check for linting issues (required)
+# 4. Check for linting issues (required)
 cargo clippy --locked -- -D warnings
 
-# 4. Check dependency security (required in CI)
+# 5. Check dependency security (required in CI)
 cargo deny check
 
-# 5. Verify smoke tests pass
+# 6. Verify smoke tests pass
 cargo test --test cli_smoke --locked
 
-# 6. Verify the app runs
+# 7. Verify the app runs
 cargo run -- --version
 
-# 7. Commit and push
+# 8. Commit and push
 git add .
 git commit -m "feat: your change"
 git push origin feat/issue-XXX-description
-```
-
-All together (simulates CI):
-```bash
-cargo fmt --all --check && \
-  cargo deny check && \
-  cargo build --locked && \
-  cargo test --locked && \
-  cargo clippy --locked -- -D warnings && \
-  cargo test --test cli_smoke --locked && \
-  echo "✅ All CI checks passed!"
 ```
 
 ## Project Structure

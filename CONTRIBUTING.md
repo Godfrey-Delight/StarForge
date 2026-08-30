@@ -394,18 +394,81 @@ All of these are checked in CI.
 
 ## Submitting a Pull Request
 
+### Branch Protection & Merge Requirements
+
+StarForge enforces strict branch protections on the `master` branch to guarantee codebase stability, correctness, and security.
+
+#### 1. Required CI Status Checks
+Every Pull Request must achieve passing status on all required CI checks before it can be merged. The required status checks are:
+
+| CI Job | Purpose | Command / Verification |
+|--------|---------|------------------------|
+| **Rustfmt** | Code formatting standards | `cargo fmt --all --check` |
+| **MSRV (Rust 1.80)** | Rust 1.80 MSRV compilation | `cargo check --locked --workspace` |
+| **Cargo Deny** | Dependency security & license audit | `cargo deny check --all-features` |
+| **Build and Test** | Full build & test suite | `cargo build --locked` & `cargo test --locked` |
+| **JSON Contract Stability** | CLI `--json` output schema stability | `cargo test --test json_contract_stability --locked` |
+| **Clippy Lint** | Zero lint warnings allowed | `cargo clippy --all-features --locked -- -D warnings` |
+| **CLI Smoke Tests (Linux)** | End-to-end CLI integration | `cli_cross_platform`, `cli_smoke`, `scripts/e2e-smoke.sh` |
+| **macOS & Windows Tests** | Cross-platform CLI validation | `cli_cross_platform`, `cli_smoke` |
+
+#### 2. Conflict-Free Requirement
+- All PRs must have **zero merge conflicts** against `master`.
+- PR branches must be rebased on the latest `master` before merge.
+- If conflicts arise during review, rebase locally and force-push to your PR branch:
+  ```bash
+  git fetch origin
+  git rebase origin/master
+  # Resolve any conflicts
+  git push --force-with-lease origin feat/your-branch
+  ```
+
+#### 3. Code Review & Approvals
+- PRs require at least one approving review from a project maintainer.
+- All review conversations must be resolved before merging.
+
+---
+
+### Local Preflight Verification (`scripts/preflight-pr.sh`)
+
+To avoid CI failures and ensure your PR passes all merge gates on the first try, run the local preflight script:
+
+```bash
+# Run standard merge gate checks
+./scripts/preflight-pr.sh
+
+# Run quick checks (fmt, clippy, unit tests, JSON contract)
+./scripts/preflight-pr.sh --quick
+
+# Auto-format and verify
+./scripts/preflight-pr.sh --fix
+
+# Run full test suite
+./scripts/preflight-pr.sh --all
+```
+
+The script automatically executes:
+1. **Git hygiene check**: Verifies no unresolved conflict markers remain and checks divergence from `master`
+2. **Rustfmt**: Verifies all code matches formatting standards
+3. **Workspace check**: Verifies compilation across the entire workspace
+4. **Clippy**: Verifies zero warnings with `-D warnings`
+5. **Contract stability**: Verifies JSON contract schema invariants
+6. **Tests**: Executes unit tests, integration tests, and smoke tests
+7. **Cargo Deny**: Audits dependencies for vulnerabilities and license issues (if `cargo-deny` is installed)
+
+The script exits with a **non-zero status code** if any check fails, reporting exactly which gate needs attention.
+
+---
+
 ### Before Submitting
 
 - [ ] Fork and clone the repository
-- [ ] Create a feature branch
-- [ ] Make your changes
-- [ ] Add/update tests
-- [ ] Run `cargo test` and verify all tests pass
-- [ ] Run `cargo fmt --all`
-- [ ] Run `cargo clippy -- -D warnings`
-- [ ] Update relevant documentation
-- [ ] Commit with clear messages
-- [ ] Push to your fork
+- [ ] Create a feature branch (`git checkout -b feat/your-feature`)
+- [ ] Make your changes and add/update tests
+- [ ] Run `./scripts/preflight-pr.sh` and ensure all gates pass (exit code `0`)
+- [ ] Verify branch is rebased on latest `master` with no conflicts
+- [ ] Update relevant documentation if applicable
+- [ ] Commit with clear messages and push to your fork
 
 ### Pull Request Checklist
 
@@ -416,15 +479,20 @@ When opening a PR, fill out the template with:
 - **Related Issues**: Link to issue(s) being resolved (e.g., `closes #208`)
 - **Tests**: Describe any tests added/modified
 - **Checklist**:
-  - [ ] Code follows style guidelines
+  - [ ] Code follows style guidelines (`cargo fmt`)
   - [ ] Self-reviewed own code
   - [ ] Added tests for new functionality
-  - [ ] All tests pass locally (`cargo test`)
+  - [ ] Passed local preflight checks (`./scripts/preflight-pr.sh`)
+  - [ ] All CI status checks passing
+  - [ ] No merge conflicts with `master`
   - [ ] Updated documentation if needed
   - [ ] No breaking changes (or clearly documented)
 
 ### PR Guidelines
 
+- **Pass All CI Gates**: PRs cannot merge with failing status checks.
+- **Ensure No Conflicts**: Keep your branch up to date with `master`.
+- **Run Preflight Locally**: Always execute `./scripts/preflight-pr.sh` before pushing.
 - **Keep PRs focused**: One issue per PR when possible
 - **Keep PRs scoped**: Smaller, focused PRs are easier to review and merge faster
 - **Write clear descriptions**: Explain the "why" not just the "what"
