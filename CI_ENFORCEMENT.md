@@ -139,6 +139,40 @@ cargo test --test cli_smoke --locked
 
 ---
 
+### Job: Windows Binary Startup Smoke Tests
+
+**Purpose**: Validate that the Windows binary starts and its core help/doctor
+surface works, mirroring what users get from the shipping `.zip`  
+**Trigger**: Every push and pull request (`ci.yml` → `cli-windows`) and on
+installer changes (`installer-tests.yml` → `installer-windows`)  
+**Status**: ✅ Required (must pass) — also release-blocking via `release.yml`
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File tests/installer/windows_smoke.ps1 -Binary target\release\starforge.exe
+```
+
+**What it tests:**
+- `starforge --version` exits 0
+- `starforge --help` exits 0
+- `starforge info` exits 0 (binary startup)
+- `starforge config --help` exits 0 and lists `doctor`
+- `starforge config doctor` runs diagnostically in an isolated
+  `STARFORGE_CONFIG_DIR`; the offline `schema` finding must pass while
+  network/toolchain findings (Horizon, Soroban RPC, Stellar CLI on PATH) are
+  reported without failing the job
+
+**Failure visibility:** each failing check prints the exact command, its exit
+code, and captured output. Full output is teed to `windows-smoke.log` and
+uploaded as a CI artifact on failure.
+
+**Windows support status:** StarForge ships Windows `x86_64` binaries as a
+`.zip` from [Releases](https://github.com/Josetic224/StarForge/releases).
+Windows binaries are built and smoke-tested in CI on every push and pull
+request, and the release pipeline refuses to publish a Windows binary that
+fails these startup/help checks.
+
+---
+
 ## Acceptance Criteria Compliance
 
 ### ✅ CI Fails Clearly on Regressions
@@ -152,6 +186,7 @@ Each job has clear, descriptive names and output:
 | Security issues | Cargo Deny | ❌ Advisory ID and description |
 | Test failures | Build, Test & Clippy | ❌ Test name and assertion |
 | Broken CLI | CLI Smoke Tests | ❌ Which command failed |
+| Broken Windows binary | Windows Binary Startup Smoke Tests | ❌ Exact command, exit code, and output (log artifact) |
 
 **Example failure output:**
 ```

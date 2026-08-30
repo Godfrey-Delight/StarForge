@@ -82,8 +82,14 @@ The script automatically:
 | Linux | aarch64 | ✅ |
 | macOS | x86\_64 | ✅ |
 | macOS | aarch64 (Apple Silicon) | ✅ |
-| Windows | x86\_64 | Download `.zip` from [Releases](https://github.com/Josetic224/StarForge/releases) |
+| Windows | x86\_64 | ✅ (`.zip` from [Releases](https://github.com/Josetic224/StarForge/releases)) |
 | FreeBSD / other | — | Not supported |
+
+Windows binaries are built and smoke-tested in CI on every push and pull
+request: CI verifies that `starforge.exe` starts and that its core `--help` and
+`config doctor` surface works ([`tests/installer/windows_smoke.ps1`](tests/installer/windows_smoke.ps1)).
+The release pipeline refuses to publish a Windows binary that fails these
+checks, so a healthy download always starts on a supported Windows version.
 
 #### Custom install directory
 
