@@ -182,7 +182,7 @@ pub enum WalletCommands {
         strict: bool,
         /// Split the backup into N recovery shares (Shamir's Secret Sharing).
         /// Requires --threshold. Each share is written to a separate file.
-        #[arg(long, conflicts_with = "encrypt", requires = "threshold")]
+        #[arg(long, requires = "threshold")]
         shares: Option<usize>,
         /// Minimum number of shares required to reconstruct (M in M-of-N).
         /// Requires --shares.

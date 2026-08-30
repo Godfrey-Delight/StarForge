@@ -178,7 +178,7 @@ pub fn load_records(days: Option<u32>) -> Result<Vec<AiCallRecord>> {
     let records = content
         .lines()
         .filter_map(|line| serde_json::from_str::<AiCallRecord>(line).ok())
-        .filter(|r| cutoff.is_none_or(|c| r.timestamp >= c))
+        .filter(|r| cutoff.map_or(true, |c| r.timestamp >= c))
         .collect();
     Ok(records)
 }

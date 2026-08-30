@@ -1375,7 +1375,7 @@ mod determinism_tests {
         let template_dir = tmp.path().join("template");
         fs::create_dir_all(&template_dir).unwrap();
         fs::write(
-            template_dir.join("src/lib.rs"),
+            template_dir.join("lib.rs"),
             "name={{PROJECT_NAME}} snake={{PROJECT_NAME_SNAKE}} pascal={{PROJECT_NAME_PASCAL}}",
         )
         .unwrap();
@@ -1384,10 +1384,10 @@ mod determinism_tests {
         fs::create_dir_all(&out).unwrap();
         copy_template_contents(&template_dir, &out, "hello-world").unwrap();
 
-        let content = fs::read_to_string(out.join("src/lib.rs")).unwrap();
+        let content = fs::read_to_string(out.join("lib.rs")).unwrap();
         assert_eq!(
             content,
-            "name=hello-world snake=hello_world Pascal=HelloWorld"
+            "name=hello-world snake=hello_world pascal=HelloWorld"
         );
     }
 

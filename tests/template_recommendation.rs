@@ -124,7 +124,7 @@ fn skill_level_default_is_intermediate() {
 fn explanation_contains_all_fields() {
     let rec = make_rec(
         "my-token",
-        85.5,
+        85.0,
         vec!["Verified template", "Has documentation"],
         false,
     );

@@ -369,8 +369,7 @@ impl RegistryClient {
 
 /// Load registry configuration from ~/.starforge/registry.toml
 pub fn load_registry_config() -> Result<RegistryConfig> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let config_path = home.join(".starforge").join("registry.toml");
+    let config_path = crate::utils::config::config_dir().join("registry.toml");
 
     if config_path.exists() {
         let contents = fs::read_to_string(&config_path)?;
@@ -387,8 +386,7 @@ pub fn load_registry_config() -> Result<RegistryConfig> {
 
 /// Save registry configuration to ~/.starforge/registry.toml
 pub fn save_registry_config(config: &RegistryConfig) -> Result<()> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge");
+    let dir = crate::utils::config::config_dir();
     let config_path = dir.join("registry.toml");
 
     if !dir.exists() {

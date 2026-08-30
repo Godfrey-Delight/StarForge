@@ -31,8 +31,7 @@ pub struct ReplOptions {
 
 impl Default for ReplOptions {
     fn default() -> Self {
-        let mut path = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push(".starforge");
+        let mut path = crate::utils::config::config_dir();
         path.push("history");
         Self {
             history_enabled: true,

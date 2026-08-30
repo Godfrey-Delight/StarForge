@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_stellar_secret_key_redaction() {
-        let valid_sk = "SDJ34K5N6P7Q8R9S0T1U2V3W4X5Y6Z7A8B9C0D1E2F3G4H5I6J7K8L9MN";
+        let valid_sk = "SDJ34K5N6P7Q2R3S4T5U2V3W4X5Y6Z7A2B3C4D5E2F3G4H5I6J7K2L3M";
         let text = format!("Account created with secret key {}", valid_sk);
         let redacted = redact_secrets(&text);
         assert!(!redacted.contains(valid_sk));

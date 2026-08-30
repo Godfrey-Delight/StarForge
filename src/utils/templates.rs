@@ -673,8 +673,7 @@ const DEFAULT_REGISTRY_URL: &str =
     "https://starforge-protocol.github.io/starforge/templates/registry.json";
 
 fn registry_path() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("templates");
+    let dir = crate::utils::config::config_dir().join("templates");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
@@ -797,8 +796,9 @@ pub fn resolve_template_source(path: &Path) -> Result<(PathBuf, Option<tempfile:
 }
 
 fn template_storage_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("templates").join("storage");
+    let dir = crate::utils::config::config_dir()
+        .join("templates")
+        .join("storage");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
@@ -806,8 +806,7 @@ fn template_storage_dir() -> Result<PathBuf> {
 }
 
 fn template_cache_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("template-cache");
+    let dir = crate::utils::config::config_dir().join("template-cache");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }

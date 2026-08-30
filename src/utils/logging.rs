@@ -206,16 +206,16 @@ pub fn redact_public_key(public_key: &str, level: Level) -> String {
 ///
 /// Secret keys and passphrases should never appear in info-level or debug-level
 /// logs.
-pub fn redact_secret_value(value: &str) -> String {
-    redact_secrets(value)
+pub fn redact_secret_value(_value: &str) -> String {
+    "[REDACTED]".to_string()
 }
 
 /// Always redact signed XDR payloads when they are written to logs.
 ///
 /// XDR envelopes containing signatures are secret and must not be emitted at
 /// info level.
-pub fn redact_signed_xdr(xdr: &str) -> String {
-    redact_secrets(xdr)
+pub fn redact_signed_xdr(_xdr: &str) -> String {
+    "[REDACTED]".to_string()
 }
 
 /// Build a `LogConfig` from CLI flags / environment.

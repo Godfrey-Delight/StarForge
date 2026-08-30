@@ -315,6 +315,8 @@ impl TestOptimizer {
             TestCategory::Performance
         } else if lower.contains("prop") || lower.contains("property") || lower.contains("fuzz") {
             TestCategory::Property
+        } else if lower.contains("general") {
+            TestCategory::General
         } else if lower.contains("unit") || lower.contains("test_") {
             TestCategory::Unit
         } else {
@@ -1164,7 +1166,7 @@ mod tests {
 
     fn create_test_optimizer() -> TestOptimizer {
         let dir = tempfile::tempdir().expect("tempdir");
-        TestOptimizer::with_config_dir(dir.path().to_path_buf()).unwrap()
+        TestOptimizer::with_config_dir(dir.keep()).unwrap()
     }
 
     #[test]

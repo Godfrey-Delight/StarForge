@@ -803,41 +803,57 @@ fn analyze_security_patterns(content: &str, file_name: &str, findings: &mut Vec<
     for (i, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
 
-        if trimmed.starts_with("pub fn ") {
+        let is_pub = trimmed.starts_with("pub fn ");
+        let is_priv = trimmed.starts_with("fn ")
+            || trimmed.starts_with("pub(crate) fn ")
+            || trimmed.starts_with("pub(in ")
+            || trimmed.starts_with("impl ")
+            || trimmed.starts_with("struct ")
+            || trimmed.starts_with("enum ")
+            || trimmed.starts_with("const ")
+            || trimmed.starts_with("static ");
+
+        if is_pub || is_priv {
             // Process previous function
             if in_pub_fn && fn_has_state_write && !fn_has_require_auth {
-                findings.push(TestFinding {
-                    category: FindingCategory::Security,
-                    severity: Severity::High,
-                    title: format!(
-                        "Function '{}' writes state without require_auth()",
-                        current_fn
-                    ),
-                    description: format!(
-                        "Function '{}' modifies contract state but does not call require_auth(). \
-                         This may allow unauthorized state changes.",
-                        current_fn
-                    ),
-                    file: Some(file_name.to_string()),
-                    line: Some(fn_line),
-                    suggestion: Some(
-                        "Add caller.require_auth() or equivalent authorization check before state mutations.".to_string(),
-                    ),
-                });
+                if current_fn != "initialize" && current_fn != "init" {
+                    findings.push(TestFinding {
+                        category: FindingCategory::Security,
+                        severity: Severity::High,
+                        title: format!(
+                            "Function '{}' writes state without require_auth()",
+                            current_fn
+                        ),
+                        description: format!(
+                            "Function '{}' modifies contract state but does not call require_auth(). \
+                             This may allow unauthorized state changes.",
+                            current_fn
+                        ),
+                        file: Some(file_name.to_string()),
+                        line: Some(fn_line),
+                        suggestion: Some(
+                            "Add caller.require_auth() or equivalent authorization check before state mutations.".to_string(),
+                        ),
+                    });
+                }
             }
 
-            // Reset for new function
-            current_fn = trimmed
-                .strip_prefix("pub fn ")
-                .unwrap_or("")
-                .split('(')
-                .next()
-                .unwrap_or("")
-                .to_string();
-            in_pub_fn = true;
-            fn_has_require_auth = false;
-            fn_has_state_write = false;
-            fn_line = i + 1;
+            if is_pub {
+                // Reset for new function
+                current_fn = trimmed
+                    .strip_prefix("pub fn ")
+                    .unwrap_or("")
+                    .split('(')
+                    .next()
+                    .unwrap_or("")
+                    .to_string();
+                in_pub_fn = true;
+                fn_has_require_auth = false;
+                fn_has_state_write = false;
+                fn_line = i + 1;
+            } else {
+                in_pub_fn = false;
+            }
         }
 
         if in_pub_fn {
@@ -856,21 +872,23 @@ fn analyze_security_patterns(content: &str, file_name: &str, findings: &mut Vec<
 
     // Check last function
     if in_pub_fn && fn_has_state_write && !fn_has_require_auth {
-        findings.push(TestFinding {
-            category: FindingCategory::Security,
-            severity: Severity::High,
-            title: format!(
-                "Function '{}' writes state without require_auth()",
-                current_fn
-            ),
-            description: format!(
-                "Function '{}' modifies contract state but does not call require_auth().",
-                current_fn
-            ),
-            file: Some(file_name.to_string()),
-            line: Some(fn_line),
-            suggestion: Some("Add caller.require_auth() before state mutations.".to_string()),
-        });
+        if current_fn != "initialize" && current_fn != "init" {
+            findings.push(TestFinding {
+                category: FindingCategory::Security,
+                severity: Severity::High,
+                title: format!(
+                    "Function '{}' writes state without require_auth()",
+                    current_fn
+                ),
+                description: format!(
+                    "Function '{}' modifies contract state but does not call require_auth().",
+                    current_fn
+                ),
+                file: Some(file_name.to_string()),
+                line: Some(fn_line),
+                suggestion: Some("Add caller.require_auth() before state mutations.".to_string()),
+            });
+        }
     }
 
     // Check for reentrancy patterns
@@ -1141,8 +1159,28 @@ fn run_compatibility_phase(template_dir: &Path, config: &TestConfig) -> Result<P
         });
     }
 
-    let content = fs::read_to_string(&cargo_path)?;
-    let parsed: toml::Value = content.parse()?;
+    let content = match fs::read_to_string(&cargo_path) {
+        Ok(c) => c,
+        Err(_) => {
+            return Ok(PhaseResult {
+                phase: "compatibility_testing".to_string(),
+                findings,
+                passed: false,
+                duration_ms: start.elapsed().as_millis() as u64,
+            });
+        }
+    };
+    let parsed: toml::Value = match content.parse() {
+        Ok(v) => v,
+        Err(_) => {
+            return Ok(PhaseResult {
+                phase: "compatibility_testing".to_string(),
+                findings,
+                passed: false,
+                duration_ms: start.elapsed().as_millis() as u64,
+            });
+        }
+    };
 
     if let Some(package) = parsed.get("package") {
         // Check Rust edition

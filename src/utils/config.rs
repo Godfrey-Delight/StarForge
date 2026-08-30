@@ -1001,7 +1001,38 @@ pub fn rollback_config(version: &str) -> Result<()> {
     Ok(())
 }
 
+thread_local! {
+    static TEST_CONFIG_DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+}
+
+pub fn set_test_config_dir(path: PathBuf) {
+    TEST_CONFIG_DIR_OVERRIDE.with(|p| {
+        *p.borrow_mut() = Some(path);
+    });
+}
+
+/// Environment variable that relocates the StarForge config directory.
+///
+/// `set_test_config_dir` only affects the calling thread, so it cannot isolate
+/// a `starforge` binary spawned as a subprocess. Integration tests that shell
+/// out need an out-of-process handle, and so do users who keep StarForge state
+/// somewhere other than `~/.starforge`.
+///
+/// This matters most on Windows: `dirs::home_dir()` there resolves through
+/// `SHGetKnownFolderPath(FOLDERID_Profile)` and deliberately ignores `HOME`
+/// and `USERPROFILE`, so tests that set those env vars still share one real
+/// config directory (and one SQLite database) across concurrent processes.
+pub const CONFIG_DIR_ENV: &str = "STARFORGE_CONFIG_DIR";
+
 pub fn config_dir() -> PathBuf {
+    if let Some(path) = TEST_CONFIG_DIR_OVERRIDE.with(|p| p.borrow().clone()) {
+        return path;
+    }
+    if let Some(dir) = std::env::var_os(CONFIG_DIR_ENV) {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
     let home = dirs::home_dir().expect("Could not find home directory");
     home.join(".starforge")
 }

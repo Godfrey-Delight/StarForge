@@ -83,9 +83,18 @@ pub struct GasUsageRecord {
     pub network: String,
 }
 
+thread_local! {
+    static TEST_METRICS_DIR: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+}
+
 fn metrics_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
-    let dir = home.join(".starforge").join("metrics");
+    if let Some(dir) = TEST_METRICS_DIR.with(|d| d.borrow().clone()) {
+        if !dir.exists() {
+            fs::create_dir_all(&dir)?;
+        }
+        return Ok(dir);
+    }
+    let dir = crate::utils::config::config_dir().join("metrics");
     if !dir.exists() {
         fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     }
@@ -902,14 +911,34 @@ mod tests {
         assert_eq!(summary.success_rate, 100.0);
     }
 
+    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     fn run_with_temp_home<F>(test: F)
     where
         F: FnOnce(),
     {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let orig_home = std::env::var("HOME").ok();
+        let orig_userprofile = std::env::var("USERPROFILE").ok();
+
         let tmp = tempfile::tempdir().unwrap();
         std::env::set_var("HOME", tmp.path());
         std::env::set_var("USERPROFILE", tmp.path());
+        TEST_METRICS_DIR.with(|d| *d.borrow_mut() = Some(tmp.path().to_path_buf()));
+
         test();
+
+        TEST_METRICS_DIR.with(|d| *d.borrow_mut() = None);
+        if let Some(h) = orig_home {
+            std::env::set_var("HOME", h);
+        } else {
+            std::env::remove_var("HOME");
+        }
+        if let Some(up) = orig_userprofile {
+            std::env::set_var("USERPROFILE", up);
+        } else {
+            std::env::remove_var("USERPROFILE");
+        }
     }
 
     #[test]

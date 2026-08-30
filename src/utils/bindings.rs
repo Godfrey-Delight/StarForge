@@ -82,16 +82,15 @@ pub fn generate_from_metadata(
     metadata: &ContractMetadata,
     language: BindingLanguage,
 ) -> Result<String> {
-    let code = match language {
-        BindingLanguage::Rust => generate_rust(metadata),
-        BindingLanguage::TypeScript => generate_typescript(metadata),
-        BindingLanguage::Python => generate_python(metadata),
-        BindingLanguage::Go => generate_go(metadata),
-    };
-    Ok(code)
+    match language {
+        BindingLanguage::Rust => Ok(generate_rust(metadata)),
+        BindingLanguage::TypeScript => Ok(generate_typescript(metadata)),
+        BindingLanguage::Python => Ok(generate_python(metadata)),
+        BindingLanguage::Go => Ok(generate_go(metadata)),
+    }
 }
 
-pub fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
+fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
     let spec = contract_spec_section(wasm)?;
     let cursor = Cursor::new(spec);
     let entries = ScSpecEntry::read_xdr_iter(&mut Limited::new(
