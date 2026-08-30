@@ -1167,6 +1167,7 @@ impl Migration for MigrationV1 {
         // This is a no-op since the initial schema is already applied in SCHEMA
         Ok(())
     }
+
     fn down(&self, conn: &Connection) -> Result<()> {
         // Rollback: drop all tables
         conn.execute_batch(
