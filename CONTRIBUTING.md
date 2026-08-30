@@ -180,6 +180,9 @@ cargo fmt --all --check
 # Linter check
 cargo clippy -- -D warnings
 
+# Secure defaults audit
+cargo test --test secure_defaults_audit
+
 # Dependency security check (requires cargo-deny)
 cargo install cargo-deny
 cargo deny check

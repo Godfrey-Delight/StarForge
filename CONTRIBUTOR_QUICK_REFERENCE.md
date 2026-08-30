@@ -29,6 +29,7 @@ cargo test
 | Run tests | `cargo test` |
 | Run with output | `cargo test -- --nocapture` |
 | Format code | `cargo fmt --all` |
+| Secure defaults audit | `cargo test --test secure_defaults_audit` |
 | Lint code | `cargo clippy -- -D warnings` |
 | Check security | `cargo deny check` |
 | Create branch | `git checkout -b feat/issue-XXX-description` |
@@ -265,8 +266,9 @@ The GitHub Actions pipeline runs on every push and PR:
 
 1. **Rustfmt** — Code formatting check
 2. **Cargo Deny** — Dependency security audit
-3. **Build, Test & Clippy** — Compilation, tests, and linting
-4. **CLI Smoke Tests** — End-to-end functionality tests
+3. **Secure Defaults Audit** — Privacy and security defaults verification
+4. **Build, Test & Clippy** — Compilation, tests, and linting
+5. **CLI Smoke Tests** — End-to-end functionality tests
 
 All must pass for a PR to be mergeable.
 
