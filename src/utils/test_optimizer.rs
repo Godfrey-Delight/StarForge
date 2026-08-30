@@ -197,17 +197,6 @@ impl TestOptimizer {
         })
     }
 
-    /// Construct an optimizer scoped to an explicit directory with empty
-    /// in-memory history and cache, bypassing disk I/O against the real
-    /// config directory. Intended for tests that need an isolated instance.
-    pub fn with_config_dir(config_dir: PathBuf) -> Self {
-        Self {
-            config_dir,
-            history: HashMap::new(),
-            cache: HashMap::new(),
-        }
-    }
-
     fn load_history(dir: &Path) -> HashMap<String, TestHistory> {
         let path = dir.join("history.json");
         if path.exists() {
@@ -326,6 +315,8 @@ impl TestOptimizer {
             TestCategory::Performance
         } else if lower.contains("prop") || lower.contains("property") || lower.contains("fuzz") {
             TestCategory::Property
+        } else if lower.contains("general") {
+            TestCategory::General
         } else if lower.contains("unit") || lower.contains("test_") {
             TestCategory::Unit
         } else {
@@ -1175,7 +1166,7 @@ mod tests {
 
     fn create_test_optimizer() -> TestOptimizer {
         let dir = tempfile::tempdir().expect("tempdir");
-        TestOptimizer::with_config_dir(dir.into_path()).unwrap()
+        TestOptimizer::with_config_dir(dir.keep()).unwrap()
     }
 
     #[test]

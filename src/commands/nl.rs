@@ -297,8 +297,8 @@ const STOP_WORDS: &[&str] = &[
     "after", "above", "below", "between", "out", "off", "over", "under", "again", "further",
     "then", "once", "and", "but", "or", "nor", "not", "so", "very", "just", "than", "too", "also",
     "here", "there", "when", "where", "why", "how", "all", "each", "every", "both", "few", "more",
-    "most", "other", "some", "such", "no", "only", "own", "same", "now", "if", "please", "show",
-    "me", "want",
+    "most", "other", "some", "such", "no", "only", "own", "same", "now", "if", "please", "me",
+    "want",
 ];
 
 /// Extracts entities from the natural language input.
@@ -345,8 +345,8 @@ fn extract_entities(input: &str) -> ExtractedEntities {
     // original-case words since StrKey contract IDs are case-sensitive.
     for word in &words_orig {
         let cleaned: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
-        if cleaned.starts_with('C') && cleaned.len() == 56 {
-            entities.contract_id = Some(cleaned);
+        if (cleaned.starts_with('c') || cleaned.starts_with('C')) && cleaned.len() == 56 {
+            entities.contract_id = Some(cleaned.to_uppercase());
             break;
         }
     }
@@ -393,6 +393,9 @@ fn extract_entities(input: &str) -> ExtractedEntities {
         if matches!(words[i], "call" | "run" | "execute" | "invoke") {
             if i + 1 < words.len() {
                 let func = words[i + 1].trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
+                if func == "contract" {
+                    continue;
+                }
                 if !func.is_empty() {
                     entities.function_name = Some(func.to_string());
                 }
@@ -445,7 +448,7 @@ fn recognize_intent(entities: &ExtractedEntities) -> (Intent, f64) {
         let match_ratio = match_count as f64 / pattern.keywords.len() as f64;
         let adjusted_confidence = pattern.confidence * match_ratio;
 
-        if match_ratio > 0.5
+        if match_ratio >= 0.5
             && best_match
                 .as_ref()
                 .map(|(_, c)| adjusted_confidence > *c)
@@ -939,7 +942,7 @@ mod tests {
     #[test]
     fn extract_contract_id() {
         let e = extract_entities(
-            "invoke contract CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "invoke contract CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2SDH",
         );
         assert!(e.contract_id.is_some());
     }

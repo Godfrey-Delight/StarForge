@@ -365,22 +365,36 @@ fn extract_functions_with_signatures(source: &str) -> Vec<FunctionInfo> {
         let trimmed = line.trim();
 
         if !in_function {
-            if let Some(func) = parse_function_line(trimmed, current_line) {
-                in_function = true;
-                brace_depth = 0;
-                body_lines.clear();
-                functions.push(func);
+            if let Some(mut func) = parse_function_line(trimmed, current_line) {
+                let open_braces = trimmed.matches('{').count();
+                let close_braces = trimmed.matches('}').count();
+                if open_braces > 0 && open_braces == close_braces {
+                    if body_mutates_state(trimmed) {
+                        func.is_mutating = true;
+                    }
+                    func.complexity_score = calculate_complexity(trimmed);
+                    functions.push(func);
+                } else {
+                    in_function = true;
+                    brace_depth = open_braces as u32;
+                    brace_depth = brace_depth.saturating_sub(close_braces as u32);
+                    body_lines.clear();
+                    body_lines.push(trimmed);
+                    functions.push(func);
+                }
             }
         } else {
             body_lines.push(trimmed);
             brace_depth += trimmed.matches('{').count() as u32;
             brace_depth = brace_depth.saturating_sub(trimmed.matches('}').count() as u32);
-            if brace_depth == 0 && (trimmed.contains('}') || trimmed.ends_with('}')) {
+            if brace_depth == 0 {
                 if let Some(last) = functions.last_mut() {
                     last.line_end = current_line;
-                    if body_mutates_state(&body_lines.join("\n")) {
+                    let body = body_lines.join("\n");
+                    if body_mutates_state(&body) {
                         last.is_mutating = true;
                     }
+                    last.complexity_score = calculate_complexity(&body);
                 }
                 in_function = false;
             }
@@ -466,11 +480,13 @@ fn parse_function_line(line: &str, line_num: u32) -> Option<FunctionInfo> {
         None
     };
 
+    let is_entry_point = is_entry_point || name == "initialize" || name == "init";
+
     Some(FunctionInfo {
         name,
         signature: line.trim().to_string(),
-        is_public: is_public,
-        is_entry_point: is_entry_point,
+        is_public,
+        is_entry_point,
         is_mutating,
         params,
         return_type,
@@ -510,11 +526,14 @@ fn extract_storage_accesses(source: &str) -> Vec<String> {
     let mut accesses = Vec::new();
     for line in source.lines() {
         let trimmed = line.trim();
-        if trimmed.contains(".set(") || trimmed.contains(".get(") || trimmed.contains(".has(") {
-            if let Some(key) = trimmed.split('(').nth(1) {
-                let key = key.trim_end_matches(')').trim().to_string();
-                if !key.is_empty() && !accesses.contains(&key) {
-                    accesses.push(key);
+        for marker in &[".set(", ".get(", ".has("] {
+            if let Some(idx) = trimmed.find(marker) {
+                let rest = &trimmed[idx + marker.len()..];
+                if let Some(end_idx) = rest.find(')') {
+                    let key = rest[..end_idx].trim().to_string();
+                    if !key.is_empty() && !accesses.contains(&key) {
+                        accesses.push(key);
+                    }
                 }
             }
         }
@@ -534,52 +553,16 @@ fn extract_external_calls(source: &str) -> Vec<String> {
     calls
 }
 
-pub fn generate_edge_case_descriptions(func: &FunctionInfo) -> Vec<String> {
-    let mut cases = vec![
-        "Zero address / null argument".to_string(),
-        "Maximum value boundary".to_string(),
-        "Minimum value boundary".to_string(),
-        "Unauthorized caller".to_string(),
-        "Empty collection / zero length".to_string(),
-        "Reentrancy / repeated invocation".to_string(),
-    ];
-    for param in &func.params {
-        cases.push(format!("Boundary case for parameter {}", param.name));
-    }
-    cases
-}
-
-pub fn generate_security_checks(func: &FunctionInfo) -> Vec<String> {
-    let mut checks = vec![
-        "Authorization verification".to_string(),
-        "Overflow / underflow guard".to_string(),
-    ];
-    if func.is_mutating {
-        checks.push("State mutation access control".to_string());
-    }
-    checks
-}
-
-pub fn generate_warnings(analysis: &ContractAnalysis) -> Vec<String> {
-    let mut warnings = Vec::new();
-    if analysis.public_functions > 5 || analysis.complex_functions > 10 {
-        warnings.push("High complexity detected in contract functions".to_string());
-    }
-    warnings
-}
-
 pub fn generate_test_priorities(analysis: &ContractAnalysis) -> Vec<TestPrioritySuggestion> {
     let mut suggestions = Vec::new();
 
     for func in &analysis.functions {
         let priority = if func.is_entry_point {
             TestPriority::Critical
-        } else if func.is_mutating && func.complexity_score > 3 {
+        } else if func.is_mutating {
             TestPriority::High
         } else if func.complexity_score > 5 {
             TestPriority::High
-        } else if func.is_mutating {
-            TestPriority::Medium
         } else {
             TestPriority::Low
         };
@@ -708,11 +691,8 @@ pub fn generate_security_checks(func: &FunctionInfo) -> Vec<String> {
 /// calls) that deserve extra test coverage.
 pub fn generate_warnings(analysis: &ContractAnalysis) -> Vec<String> {
     let mut warnings = Vec::new();
-    if analysis.complex_functions > 3 {
-        warnings.push(format!(
-            "Contract has {} complex functions that may need additional test cases",
-            analysis.complex_functions
-        ));
+    if analysis.public_functions > 5 || analysis.complex_functions > 3 {
+        warnings.push("High complexity detected in contract functions".to_string());
     }
     if analysis.storage_accesses.len() > 5 {
         warnings

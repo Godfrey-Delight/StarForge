@@ -605,7 +605,7 @@ fn handle_list(args: ListArgs) -> Result<()> {
         .filter(|p| {
             args.contract_id
                 .as_deref()
-                .is_none_or(|id| p.contract_id == id)
+                .map_or(true, |id| p.contract_id == id)
         })
         .collect();
 

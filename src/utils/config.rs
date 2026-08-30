@@ -731,14 +731,15 @@ pub const CURRENT_CONFIG_VERSION: &str = "1";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigMigrationError {
     /// The config declares a version that is newer than this binary supports.
-    FromFuture {
-        found: String,
-        latest: &'static str,
-    },
+    FromFuture { found: String, latest: &'static str },
     /// The config declares a version not in the migration registry.
     UnknownVersion { found: String },
     /// A migration step failed.
-    StepFailed { from: String, to: String, reason: String },
+    StepFailed {
+        from: String,
+        to: String,
+        reason: String,
+    },
     /// Creating the pre-migration backup failed.
     BackupFailed { version: String, reason: String },
 }
@@ -757,10 +758,9 @@ impl std::fmt::Display for ConfigMigrationError {
                 "Unrecognised config schema version '{found}'. Check that the config file has \
                  not been manually edited."
             ),
-            Self::StepFailed { from, to, reason } => write!(
-                f,
-                "Migration from config v{from} to v{to} failed: {reason}"
-            ),
+            Self::StepFailed { from, to, reason } => {
+                write!(f, "Migration from config v{from} to v{to} failed: {reason}")
+            }
             Self::BackupFailed { version, reason } => write!(
                 f,
                 "Failed to create backup of config v{version} before migration: {reason}. \
@@ -871,12 +871,11 @@ pub fn run_config_migrations(mut config: Config) -> Result<(Config, MigrationRep
             found: raw_version.clone(),
         })?;
 
-    let backup_path = write_config_backup(&config).map_err(|e| {
-        ConfigMigrationError::BackupFailed {
+    let backup_path =
+        write_config_backup(&config).map_err(|e| ConfigMigrationError::BackupFailed {
             version: raw_version.clone(),
             reason: e.to_string(),
-        }
-    })?;
+        })?;
 
     let mut steps_applied: Vec<(String, String)> = Vec::new();
     let mut current_version = raw_version.clone();
@@ -916,9 +915,7 @@ pub fn migrate_config(config: Config) -> Result<Config> {
 /// Versions are compared component-by-component after splitting on `'.'`.
 /// Non-numeric components are treated as `0`.
 fn is_version_newer(a: &str, b: &str) -> bool {
-    let parse = |s: &str| -> Vec<u64> {
-        s.split('.').map(|c| c.parse().unwrap_or(0)).collect()
-    };
+    let parse = |s: &str| -> Vec<u64> { s.split('.').map(|c| c.parse().unwrap_or(0)).collect() };
     let a_parts = parse(a);
     let b_parts = parse(b);
     let max_len = a_parts.len().max(b_parts.len());
@@ -946,8 +943,8 @@ fn write_config_backup(config: &Config) -> Result<std::path::PathBuf> {
         config.version,
         chrono::Utc::now().timestamp(),
     ));
-    let contents = toml::to_string_pretty(config)
-        .with_context(|| "Failed to serialize config for backup")?;
+    let contents =
+        toml::to_string_pretty(config).with_context(|| "Failed to serialize config for backup")?;
     fs::write(&backup_path, contents)
         .with_context(|| format!("Failed to write backup to {:?}", backup_path))?;
     Ok(backup_path)
@@ -957,8 +954,6 @@ fn write_config_backup(config: &Config) -> Result<std::path::PathBuf> {
 fn backup_config(config: &Config) -> Result<()> {
     write_config_backup(config).map(|_| ())
 }
-
-
 
 #[allow(dead_code)]
 pub fn rollback_config(version: &str) -> Result<()> {
@@ -991,7 +986,38 @@ pub fn rollback_config(version: &str) -> Result<()> {
     Ok(())
 }
 
+thread_local! {
+    static TEST_CONFIG_DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+}
+
+pub fn set_test_config_dir(path: PathBuf) {
+    TEST_CONFIG_DIR_OVERRIDE.with(|p| {
+        *p.borrow_mut() = Some(path);
+    });
+}
+
+/// Environment variable that relocates the StarForge config directory.
+///
+/// `set_test_config_dir` only affects the calling thread, so it cannot isolate
+/// a `starforge` binary spawned as a subprocess. Integration tests that shell
+/// out need an out-of-process handle, and so do users who keep StarForge state
+/// somewhere other than `~/.starforge`.
+///
+/// This matters most on Windows: `dirs::home_dir()` there resolves through
+/// `SHGetKnownFolderPath(FOLDERID_Profile)` and deliberately ignores `HOME`
+/// and `USERPROFILE`, so tests that set those env vars still share one real
+/// config directory (and one SQLite database) across concurrent processes.
+pub const CONFIG_DIR_ENV: &str = "STARFORGE_CONFIG_DIR";
+
 pub fn config_dir() -> PathBuf {
+    if let Some(path) = TEST_CONFIG_DIR_OVERRIDE.with(|p| p.borrow().clone()) {
+        return path;
+    }
+    if let Some(dir) = std::env::var_os(CONFIG_DIR_ENV) {
+        if !dir.is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
     let home = dirs::home_dir().expect("Could not find home directory");
     home.join(".starforge")
 }
