@@ -332,7 +332,7 @@ fn list(json: bool) -> Result<()> {
             vec![
                 entry.name.clone(),
                 entry.plugin_version.clone(),
-                entry.trust.label().to_string(),
+                entry.trust.clone(),
                 entry.description.clone(),
             ]
         })
@@ -372,7 +372,7 @@ fn load() -> Result<()> {
         return Ok(());
     }
 
-    let config = config::load().unwrap_or_default();
+    let _config = config::load().unwrap_or_default();
 
     // Warn about any unknown-trust plugins before loading.
     for pl in reg.plugins.iter().filter(|p| {
@@ -495,6 +495,9 @@ fn uninstall(name: String, purge: bool, yes: bool) -> Result<()> {
     Ok(())
 }
 
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn discover_commands_from_library(lib_path: &str) -> Result<Vec<RegisteredCommand>> {
     let path = Path::new(lib_path);
     let mut pm = PluginManager::new();
@@ -525,7 +528,7 @@ fn update(name: Option<String>, yes: bool) -> Result<()> {
         return Ok(());
     }
 
-    let config = config::load().unwrap_or_default();
+    let _config = config::load().unwrap_or_default();
 
     let to_update: Vec<_> = match &name {
         Some(n) => {
@@ -729,7 +732,7 @@ fn verify(name: Option<String>, deep: bool, runtime_check: bool) -> Result<()> {
         None => reg.plugins.iter().collect(),
     };
 
-    let config = config::load().unwrap_or_default();
+    let _config = config::load().unwrap_or_default();
     let mut all_ok = true;
 
     for pl in &to_check {

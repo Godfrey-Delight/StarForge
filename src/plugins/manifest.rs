@@ -149,21 +149,21 @@ impl PluginManifest {
             let existing = c.to_lowercase();
             existing == cap_lower
                 || existing == "*"
-                || match (existing.as_str(), cap_lower.as_str()) {
+                || matches!(
+                    (existing.as_str(), cap_lower.as_str()),
                     ("fs", "fs:read")
-                    | ("fs", "fs:write")
-                    | ("filesystem", "fs:read")
-                    | ("filesystem", "fs:write")
-                    | ("filesystemaccess", "fs:read")
-                    | ("filesystemaccess", "fs:write") => true,
-                    ("net", "network")
-                    | ("net", "net:http")
-                    | ("network", "net:http")
-                    | ("network", "net:ws")
-                    | ("networkaccess", "network")
-                    | ("networkaccess", "net:http") => true,
-                    _ => false,
-                }
+                        | ("fs", "fs:write")
+                        | ("filesystem", "fs:read")
+                        | ("filesystem", "fs:write")
+                        | ("filesystemaccess", "fs:read")
+                        | ("filesystemaccess", "fs:write")
+                        | ("net", "network")
+                        | ("net", "net:http")
+                        | ("network", "net:http")
+                        | ("network", "net:ws")
+                        | ("networkaccess", "network")
+                        | ("networkaccess", "net:http")
+                )
         })
     }
 
