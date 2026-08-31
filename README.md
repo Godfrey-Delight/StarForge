@@ -669,6 +669,7 @@ StarForge has comprehensive documentation covering all aspects of the project:
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Contributing and development guide
 - **[API_REFERENCE.md](API_REFERENCE.md)** - Complete command reference
 - **[docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md)** - Navigable CLI command index
+- **[docs/COMMAND_CHEATSHEET.md](docs/COMMAND_CHEATSHEET.md)** - Auto-generated CLI command cheat sheet
 
 ### ?? Feature Documentation
 - **[TEMPLATE_MARKETPLACE.md](TEMPLATE_MARKETPLACE.md)** - Template marketplace feature
