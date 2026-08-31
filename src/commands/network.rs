@@ -173,11 +173,14 @@ pub fn validate_url(label: &str, url: &str) -> Result<()> {
     if trimmed.is_empty() {
         anyhow::bail!("{} URL cannot be empty", label);
     }
-    let parsed = reqwest::Url::parse(trimmed).map_err(|e| {
-        anyhow::anyhow!("Invalid {} URL '{}': {}", label, url, e)
-    })?;
+    let parsed = reqwest::Url::parse(trimmed)
+        .map_err(|e| anyhow::anyhow!("Invalid {} URL '{}': {}", label, url, e))?;
     if parsed.scheme() != "http" && parsed.scheme() != "https" {
-        anyhow::bail!("{} URL scheme must be http or https, got '{}'", label, parsed.scheme());
+        anyhow::bail!(
+            "{} URL scheme must be http or https, got '{}'",
+            label,
+            parsed.scheme()
+        );
     }
     if parsed.host_str().is_none() {
         anyhow::bail!("{} URL missing valid host", label);
@@ -499,9 +502,10 @@ mod tests {
     #[test]
     fn test_validate_passphrase() {
         assert!(validate_passphrase(&None).is_ok());
-        assert!(validate_passphrase(&Some("Test SDF Network ; September 2015".to_string())).is_ok());
+        assert!(
+            validate_passphrase(&Some("Test SDF Network ; September 2015".to_string())).is_ok()
+        );
         assert!(validate_passphrase(&Some("".to_string())).is_err());
         assert!(validate_passphrase(&Some("   ".to_string())).is_err());
     }
 }
-

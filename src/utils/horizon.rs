@@ -95,7 +95,9 @@ pub async fn fund_account(public_key: &str, network: &str) -> Result<()> {
 
     let friendbot = match net_cfg.friendbot_url {
         Some(url) => url,
-        None if network.eq_ignore_ascii_case("testnet") => "https://friendbot.stellar.org".to_string(),
+        None if network.eq_ignore_ascii_case("testnet") => {
+            "https://friendbot.stellar.org".to_string()
+        }
         None => {
             anyhow::bail!(
                 "Network '{}' does not have a Friendbot faucet URL configured.\n\
@@ -108,12 +110,14 @@ pub async fn fund_account(public_key: &str, network: &str) -> Result<()> {
     let separator = if friendbot.contains('?') { '&' } else { '?' };
     let url = format!("{}{}addr={}", friendbot, separator, public_key);
 
-    let res = send_with_retry(|| HTTP_CLIENT.get(&url).send()).await.with_context(|| {
-        format!(
-            "Could not reach Friendbot on '{}'. Check your internet connection.",
-            network
-        )
-    })?;
+    let res = send_with_retry(|| HTTP_CLIENT.get(&url).send())
+        .await
+        .with_context(|| {
+            format!(
+                "Could not reach Friendbot on '{}'. Check your internet connection.",
+                network
+            )
+        })?;
 
     if res.status() == 200 {
         Ok(())
