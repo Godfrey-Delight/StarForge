@@ -230,38 +230,6 @@ pub struct InstalledPlugin {
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
-    /// Human-readable description from the plugin manifest, if any. Older
-    /// registry entries (installed before this field existed) default to
-    /// empty; use [`resolve_plugin_description`] to get a display-ready
-    /// value that falls back to the first command's description.
-    #[serde(default)]
-    pub description: String,
-}
-
-/// Resolve the description to display for a plugin: prefer the registry's
-/// own `description` field, falling back to the first command's description.
-pub fn resolve_plugin_description(plugin: &InstalledPlugin) -> String {
-    if !plugin.description.is_empty() {
-        return plugin.description.clone();
-    }
-    plugin
-        .commands
-        .first()
-        .map(|c| c.description.clone())
-        .unwrap_or_default()
-}
-
-/// Return registry entries with `description` resolved for display (see
-/// [`resolve_plugin_description`]).
-pub fn plugin_list_entries(reg: &PluginRegistry) -> Vec<InstalledPlugin> {
-    reg.plugins
-        .iter()
-        .cloned()
-        .map(|mut p| {
-            p.description = resolve_plugin_description(&p);
-            p
-        })
-        .collect()
 }
 
 fn registry_path() -> Result<PathBuf> {

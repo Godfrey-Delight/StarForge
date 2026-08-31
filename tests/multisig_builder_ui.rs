@@ -1,8 +1,6 @@
 use starforge::utils::multisig_builder::{
     calculate_progress, generate_signature, proposal_from_template, render_progress_bar,
-    template_definitions, validate_for_submit, Proposal,
-    generate_signature, proposal_from_template, render_progress_blocks, template_definitions,
-    validate_for_submit, Proposal,
+    render_progress_blocks, template_definitions, validate_for_submit, Proposal,
 };
 
 #[test]

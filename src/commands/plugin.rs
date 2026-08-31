@@ -299,8 +299,6 @@ fn list(json: bool) -> Result<()> {
                 trust: entry.trust.label().to_string(),
                 source: entry.source,
                 description: entry.description,
-                source: entry.source.clone(),
-                description: entry.description.clone(),
                 commands: entry
                     .commands
                     .into_iter()
@@ -327,7 +325,6 @@ fn list(json: bool) -> Result<()> {
     p::kv("StarForge core version", CORE_VERSION);
     p::separator();
     let list_entries = registry::plugin_list_entries(&reg);
-    let entries = registry::plugin_list_entries(&reg);
 
     let plugin_rows: Vec<Vec<String>> = list_entries
         .iter()

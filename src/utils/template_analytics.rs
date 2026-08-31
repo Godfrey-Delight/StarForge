@@ -935,9 +935,6 @@ mod tests {
             featured: false,
             security_review: None,
             changelog: None,
-            repository_url: None,
-            categories: vec![],
-            featured: false,
         }
     }
 
@@ -1268,7 +1265,6 @@ mod tests {
             status: "audited".to_string(),
             audited_at: Some("2026-01-01".to_string()),
             auditor: Some("Auditor".to_string()),
-            findings: Some(2.to_string()),
             findings: Some("2".to_string()),
             score: Some(80.0),
         });
