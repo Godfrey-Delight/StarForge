@@ -24,6 +24,7 @@
         "audited_at": "2025-03-15T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 95
       },
       "changelog": [
@@ -143,6 +144,7 @@
         "audited_at": "2025-05-01T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 98
       },
       "changelog": [
@@ -173,6 +175,7 @@
         "audited_at": "2025-02-01T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 96
       },
       "changelog": [
@@ -201,6 +204,7 @@
         "audited_at": "2025-05-20T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 97
       },
       "changelog": [
@@ -230,6 +234,7 @@
         "audited_at": "2025-04-10T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 95
       },
       "changelog": [
@@ -258,6 +263,7 @@
         "audited_at": "2025-04-10T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 96
       },
       "changelog": [
@@ -286,6 +292,7 @@
         "audited_at": "2025-06-29T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 98
       },
       "changelog": [
@@ -314,6 +321,7 @@
         "audited_at": "2025-06-29T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 97
       },
       "changelog": [
@@ -342,6 +350,7 @@
         "audited_at": "2025-06-29T00:00:00Z",
         "auditor": "StarForge Security Team",
         "findings": null,
+        "findings": "0",
         "score": 94
       },
       "changelog": [

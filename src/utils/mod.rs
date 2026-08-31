@@ -86,6 +86,7 @@ pub mod doc_templates;
 pub mod docs;
 pub mod documentation;
 pub mod event_monitoring;
+pub mod exit_codes;
 pub mod feature_flags;
 pub mod gas_analyzer;
 pub mod gas_report;
