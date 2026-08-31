@@ -68,6 +68,7 @@ cargo deny check --all-features
 # Install cargo-deny (if not present)
 cargo install cargo-deny
 
+# Run security auditcargo deny check
 # Run all supply-chain checks
 cargo deny check
 
@@ -116,6 +117,30 @@ cargo test --doc --locked
 ```
 
 See [DOCTEST_GUIDELINES.md](DOCTEST_GUIDELINES.md) for how to write doctests.
+
+---
+
+### Job: Secure Defaults Audit
+
+**Purpose**: Verify that StarForge ships with secure, privacy-respecting defaults  
+**Trigger**: Every push and pull request  
+**Status**: ✅ Required (must pass)
+
+```bash
+cargo test --test secure_defaults_audit --locked
+```
+
+**What it checks:**
+- Telemetry opt-out is respected (defaults to enabled)
+- AI telemetry cloud aggregation is disabled by default
+- Friendbot is absent on mainnet, present on testnet
+- Default network is testnet
+- Plugin trust sources match known repos only
+- Wallet encryption is opt-in
+- File permissions are restricted (0600)
+- Network passphrases are correct
+
+See [SECURE_DEFAULTS_AUDIT.md](SECURE_DEFAULTS_AUDIT.md) for the full checklist.
 
 ---
 
@@ -232,6 +257,7 @@ Each job has clear, descriptive names and output:
 | Lint violations | Build, Test & Clippy | ❌ Specific warning messages |
 | Security issues | Cargo Deny | ❌ Advisory ID and description |
 | Test failures | Build, Test & Clippy | ❌ Test name and assertion |
+| Secure default regressions | Secure Defaults Audit | ❌ Which default changed |
 | Broken doc examples | Documentation Tests | ❌ Compilation error or assertion failure |
 | Broken CLI | CLI Smoke Tests | ❌ Which command failed |
 | Broken Windows binary | Windows Binary Startup Smoke Tests | ❌ Exact command, exit code, and output (log artifact) |
@@ -286,6 +312,8 @@ cargo build --locked
 # 3. Run tests
 cargo test --locked
 
+# 4. Check secure defaults
+cargo test --test secure_defaults_audit --locked
 # 4. Check doctests
 cargo test --doc --locked
 
@@ -322,6 +350,7 @@ from `docs/contracts/cli-json-fields.json` unless they are first marked
 
 StarForge enforces GitHub branch protections on the `master` branch:
 
+1. **Required Status Checks**: All CI workflow jobs (`fmt`, `msrv`, `deny`, `secure-defaults`, `build-and-test`, `clippy`, `smoke`, `cli-macos`, `cli-windows`) must pass before a pull request can be merged.
 1. **Required Status Checks**: All CI workflow jobs (`fmt`, `msrv`, `deny`, `doctests`, `build-and-test`, `clippy`, `smoke`, `cli-macos`, `cli-windows`) must pass before a pull request can be merged.
 2. **Conflict-Free Enforcement**: Pull requests with merge conflicts are blocked from merging. Branches must be cleanly rebased against `master`.
 3. **Approved Reviews**: PRs require maintainer review and approval with all conversational threads resolved.

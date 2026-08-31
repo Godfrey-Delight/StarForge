@@ -40,6 +40,8 @@ jobs:
           command: check
           arguments: --all-features
 
+  secure-defaults:
+    name: Secure Defaults Audit
   doctests:
     name: Documentation Tests
     runs-on: ubuntu-latest
@@ -48,6 +50,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - name: Run secure defaults audit
+        run: cargo test --test secure_defaults_audit --locked
       - name: Run doctests
         run: cargo test --doc --locked
 
