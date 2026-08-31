@@ -274,7 +274,9 @@ mod tests {
         let mut buf = Vec::new();
         {
             let mut writer = RedactingWriter::new(&mut buf);
-            writer.write_all(b"Authorization: Bearer mytoken123\n").unwrap();
+            writer
+                .write_all(b"Authorization: Bearer mytoken123\n")
+                .unwrap();
             writer.flush().unwrap();
         }
         let output = String::from_utf8(buf).unwrap();

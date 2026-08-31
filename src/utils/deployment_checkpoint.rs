@@ -483,10 +483,11 @@ mod tests {
 
         let lock2 = DeploymentLock::acquire(session);
         assert!(lock2.is_err());
-        assert!(lock2
-            .unwrap_err()
-            .to_string()
-            .contains("already in progress"));
+        let err_msg = match lock2 {
+            Err(e) => e.to_string(),
+            Ok(_) => panic!("expected lock acquisition to fail for a locked session"),
+        };
+        assert!(err_msg.contains("already in progress"));
 
         drop(lock1);
         let lock3 = DeploymentLock::acquire(session);

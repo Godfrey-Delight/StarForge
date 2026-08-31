@@ -29,13 +29,32 @@ pub struct AuditReport {
     pub entries: Vec<AuditEntry>,
 }
 
-fn audit_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?;
+pub(crate) fn audit_dir() -> Result<PathBuf> {
+    let home = home_dir()?;
     let dir = home.join(".starforge").join("audit");
     if !dir.exists() {
         fs::create_dir_all(&dir)?;
     }
     Ok(dir)
+}
+
+/// Resolve the user's home directory, honouring the `HOME` (Unix) and
+/// `USERPROFILE` (Windows) environment variables ahead of `dirs::home_dir()`.
+///
+/// Honouring the env vars lets callers (especially tests) redirect the audit
+/// directory to a temporary location for isolation without changing the
+/// process-wide profile. In normal use the env var matches the real home, so
+/// the resolved path is identical to `dirs::home_dir()`.
+fn home_dir() -> Result<PathBuf> {
+    if let Some(home) = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .filter(|v| !v.is_empty())
+    {
+        if let Some(home) = home.to_str().filter(|s| !s.trim().is_empty()) {
+            return Ok(PathBuf::from(home));
+        }
+    }
+    dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not find home directory"))
 }
 
 fn audit_log_file() -> Result<PathBuf> {

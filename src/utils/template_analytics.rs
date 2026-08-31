@@ -929,8 +929,6 @@ mod tests {
             featured: false,
             security_review: None,
             changelog: Some(vec![]),
-            categories: Vec::new(),
-            featured: false,
         }
     }
 

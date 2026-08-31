@@ -731,14 +731,15 @@ pub const CURRENT_CONFIG_VERSION: &str = "1";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigMigrationError {
     /// The config declares a version that is newer than this binary supports.
-    FromFuture {
-        found: String,
-        latest: &'static str,
-    },
+    FromFuture { found: String, latest: &'static str },
     /// The config declares a version not in the migration registry.
     UnknownVersion { found: String },
     /// A migration step failed.
-    StepFailed { from: String, to: String, reason: String },
+    StepFailed {
+        from: String,
+        to: String,
+        reason: String,
+    },
     /// Creating the pre-migration backup failed.
     BackupFailed { version: String, reason: String },
 }
@@ -757,10 +758,9 @@ impl std::fmt::Display for ConfigMigrationError {
                 "Unrecognised config schema version '{found}'. Check that the config file has \
                  not been manually edited."
             ),
-            Self::StepFailed { from, to, reason } => write!(
-                f,
-                "Migration from config v{from} to v{to} failed: {reason}"
-            ),
+            Self::StepFailed { from, to, reason } => {
+                write!(f, "Migration from config v{from} to v{to} failed: {reason}")
+            }
             Self::BackupFailed { version, reason } => write!(
                 f,
                 "Failed to create backup of config v{version} before migration: {reason}. \
@@ -871,12 +871,11 @@ pub fn run_config_migrations(mut config: Config) -> Result<(Config, MigrationRep
             found: raw_version.clone(),
         })?;
 
-    let backup_path = write_config_backup(&config).map_err(|e| {
-        ConfigMigrationError::BackupFailed {
+    let backup_path =
+        write_config_backup(&config).map_err(|e| ConfigMigrationError::BackupFailed {
             version: raw_version.clone(),
             reason: e.to_string(),
-        }
-    })?;
+        })?;
 
     let mut steps_applied: Vec<(String, String)> = Vec::new();
     let mut current_version = raw_version.clone();
@@ -916,9 +915,7 @@ pub fn migrate_config(config: Config) -> Result<Config> {
 /// Versions are compared component-by-component after splitting on `'.'`.
 /// Non-numeric components are treated as `0`.
 fn is_version_newer(a: &str, b: &str) -> bool {
-    let parse = |s: &str| -> Vec<u64> {
-        s.split('.').map(|c| c.parse().unwrap_or(0)).collect()
-    };
+    let parse = |s: &str| -> Vec<u64> { s.split('.').map(|c| c.parse().unwrap_or(0)).collect() };
     let a_parts = parse(a);
     let b_parts = parse(b);
     let max_len = a_parts.len().max(b_parts.len());
@@ -946,8 +943,8 @@ fn write_config_backup(config: &Config) -> Result<std::path::PathBuf> {
         config.version,
         chrono::Utc::now().timestamp(),
     ));
-    let contents = toml::to_string_pretty(config)
-        .with_context(|| "Failed to serialize config for backup")?;
+    let contents =
+        toml::to_string_pretty(config).with_context(|| "Failed to serialize config for backup")?;
     fs::write(&backup_path, contents)
         .with_context(|| format!("Failed to write backup to {:?}", backup_path))?;
     Ok(backup_path)
@@ -957,8 +954,6 @@ fn write_config_backup(config: &Config) -> Result<std::path::PathBuf> {
 fn backup_config(config: &Config) -> Result<()> {
     write_config_backup(config).map(|_| ())
 }
-
-
 
 #[allow(dead_code)]
 pub fn rollback_config(version: &str) -> Result<()> {
@@ -992,8 +987,27 @@ pub fn rollback_config(version: &str) -> Result<()> {
 }
 
 pub fn config_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not find home directory");
+    let home = resolve_home_dir();
     home.join(".starforge")
+}
+
+/// Resolve the user's home directory, honouring the `USERPROFILE` (Windows)
+/// and `HOME` (Unix) environment variables ahead of `dirs::home_dir()`.
+///
+/// Honouring the env vars lets callers (especially tests) redirect the config
+/// directory to a temporary location for isolation. In normal use the env var
+/// matches the real home, so the resolved path is identical to
+/// `dirs::home_dir()`.
+fn resolve_home_dir() -> PathBuf {
+    if let Some(home) = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .filter(|v| !v.is_empty())
+    {
+        if let Some(home) = home.to_str().filter(|s| !s.trim().is_empty()) {
+            return PathBuf::from(home);
+        }
+    }
+    dirs::home_dir().expect("Could not find home directory")
 }
 
 pub fn get_data_dir() -> Result<PathBuf> {

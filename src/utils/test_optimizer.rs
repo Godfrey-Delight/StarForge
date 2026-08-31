@@ -171,6 +171,7 @@ pub struct FailurePatternReport {
 
 // ── Test Optimizer ──────────────────────────────────────────────────────────
 
+#[derive(Debug)]
 pub struct TestOptimizer {
     pub config_dir: PathBuf,
     pub history: HashMap<String, TestHistory>,
@@ -200,7 +201,7 @@ impl TestOptimizer {
     /// Construct an optimizer scoped to an explicit directory with empty
     /// in-memory history and cache, bypassing disk I/O against the real
     /// config directory. Intended for tests that need an isolated instance.
-    pub fn with_config_dir(config_dir: PathBuf) -> Self {
+    pub fn with_empty_config_dir(config_dir: PathBuf) -> Self {
         Self {
             config_dir,
             history: HashMap::new(),

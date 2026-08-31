@@ -76,7 +76,9 @@ impl MaintenanceStatus {
     }
 }
 
-fn deserialize_findings_opt<'de, D>(deserializer: D) -> std::result::Result<Option<String>, D::Error>
+fn deserialize_findings_opt<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -2131,17 +2133,11 @@ mod tests {
             documented: false,
             maintenance: MaintenanceStatus::Unknown,
             license: None,
-            repository: None,
-            security_review: None,
-            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            repository: None,
-            security_review: None,
-            changelog: None,
         }
     }
 
@@ -2474,17 +2470,11 @@ mod tests {
             documented: true,
             maintenance: MaintenanceStatus::Active,
             license: None,
-            repository: None,
-            security_review: None,
-            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            repository: None,
-            security_review: None,
-            changelog: None,
         });
 
         // Test name search
@@ -2534,17 +2524,11 @@ mod tests {
             documented: false,
             maintenance: MaintenanceStatus::Unknown,
             license: None,
-            repository: None,
-            security_review: None,
-            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            repository: None,
-            security_review: None,
-            changelog: None,
         };
 
         let dest = tmp.path().join(&entry.name);
@@ -2596,17 +2580,11 @@ mod tests {
             documented: false,
             maintenance: MaintenanceStatus::Unknown,
             license: None,
-            repository: None,
-            security_review: None,
-            changelog: None,
             repository_url: None,
             homepage: None,
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            repository: None,
-            security_review: None,
-            changelog: None,
         }
     }
 

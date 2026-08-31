@@ -61,7 +61,10 @@ fn test_cross_platform_version_and_info() {
         .expect("spawn starforge --version");
     assert_success(&output, "starforge --version");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("starforge"), "Version output should contain binary name");
+    assert!(
+        stdout.contains("starforge"),
+        "Version output should contain binary name"
+    );
 
     // Verify info command
     let output = starforge_cmd(home.path())
@@ -127,7 +130,10 @@ fn test_cross_platform_paths_with_spaces_and_special_chars() {
         .arg("info")
         .output()
         .expect("spawn in directory with spaces");
-    assert_success(&output, "starforge info in dir with spaces and special chars");
+    assert_success(
+        &output,
+        "starforge info in dir with spaces and special chars",
+    );
 }
 
 #[test]
@@ -177,7 +183,10 @@ fn test_cross_platform_no_color_environment_handling() {
     let output = cmd.output().expect("spawn with NO_COLOR=1");
     assert_success(&output, "starforge --help with NO_COLOR=1");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(!stdout.contains("\x1b["), "Output with NO_COLOR=1 should not contain ANSI escape codes");
+    assert!(
+        !stdout.contains("\x1b["),
+        "Output with NO_COLOR=1 should not contain ANSI escape codes"
+    );
 }
 
 #[test]
@@ -210,7 +219,13 @@ fn test_cross_platform_invalid_subcommand_failure() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let combined = format!("{}{}", stdout, stderr);
     assert!(
-        combined.contains("error:") || combined.contains("Error") || combined.contains("Usage") || combined.contains("unrecognized") || combined.contains("not recognized") || combined.contains("not a valid") || !combined.is_empty(),
+        combined.contains("error:")
+            || combined.contains("Error")
+            || combined.contains("Usage")
+            || combined.contains("unrecognized")
+            || combined.contains("not recognized")
+            || combined.contains("not a valid")
+            || !combined.is_empty(),
         "Error output should provide a descriptive failure message"
     );
 }
@@ -227,7 +242,10 @@ fn test_cross_platform_unsupported_flag_failure() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("unexpected") || stderr.contains("error:") || stderr.contains("unknown") || stderr.contains("unrecognized"),
+        stderr.contains("unexpected")
+            || stderr.contains("error:")
+            || stderr.contains("unknown")
+            || stderr.contains("unrecognized"),
         "Error message should explain unsupported flag"
     );
 }

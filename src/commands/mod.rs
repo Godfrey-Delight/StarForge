@@ -58,7 +58,6 @@ pub mod governance;
 pub mod help;
 pub mod info;
 pub mod inspect;
-pub mod invoke_script;
 pub mod invoke;
 pub mod invoke_script;
 pub mod lint;

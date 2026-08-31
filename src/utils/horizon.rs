@@ -17,6 +17,11 @@ static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| {
     build_http_client(Duration::from_secs(30)).expect("Failed to create shared Horizon HTTP client")
 });
 
+/// Shared HTTP client used for Horizon requests.
+pub(crate) fn http_client() -> &'static Client {
+    &HTTP_CLIENT
+}
+
 pub fn network_config(network: &str) -> Result<config::NetworkConfig> {
     let cfg = config::load()?;
     config::get_network_config(&cfg, network)

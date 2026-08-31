@@ -6,7 +6,6 @@
 // AI Service Abstraction Layer (#479)
 // AI Test Analytics (#570)
 pub mod ai;
-pub mod audit_bundle;
 pub mod ai_accessibility;
 pub mod ai_cache;
 pub mod ai_context;
@@ -43,6 +42,7 @@ pub mod ai_tutorial;
 pub mod ai_validation;
 pub mod approval_engine;
 pub mod audit;
+pub mod audit_bundle;
 pub mod backup;
 pub mod benchmarking;
 pub mod bindings;
@@ -105,6 +105,7 @@ pub mod mnemonic;
 pub mod mock_soroban;
 pub mod multi_network_deploy;
 pub mod multisig;
+pub mod multisig_audit;
 pub mod multisig_builder;
 pub mod mutation;
 pub mod network_sim;

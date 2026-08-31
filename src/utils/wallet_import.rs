@@ -188,6 +188,9 @@ impl std::fmt::Display for WalletImportError {
             Self::CorruptedShares => {
                 write!(f, "recovery shares failed integrity check — data may be corrupted or from different split operations")
             }
+            Self::IntegrityCheckFailed => {
+                write!(f, "integrity tag did not match the backup body; the backup may have been tampered with")
+            }
         }
     }
 }
@@ -211,6 +214,11 @@ pub struct WalletBackup {
     /// of a single passphrase.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub recovery_shares: Option<Vec<shamir::RecoveryShare>>,
+    /// HMAC-SHA256 integrity tag over the canonical backup body. Version 2
+    /// backups carry this tag so tampering can be detected on import. The
+    /// tag is computed over the JSON with this field forced to `None`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub integrity_tag: Option<String>,
 }
 
 /// One wallet inside a backup document.
