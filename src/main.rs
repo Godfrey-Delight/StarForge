@@ -665,7 +665,7 @@ async fn run() {
             .unwrap_or(true);
     if tips_allowed {
         let cfg = utils::config::load().ok();
-        let tips_enabled = cfg.and_then(|c| c.telemetry_enabled).unwrap_or(true);
+        let tips_enabled = cfg.and_then(|c| c.telemetry_enabled).unwrap_or(false);
         if tips_enabled {
             let history_path = utils::config::config_dir();
             if let Ok(history_entries) = utils::history::load_history(&history_path) {
