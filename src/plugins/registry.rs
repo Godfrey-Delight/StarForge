@@ -221,15 +221,41 @@ pub struct InstalledPlugin {
     /// Plugin version from manifest.
     #[serde(default)]
     pub plugin_version: String,
-    /// Optional description from manifest.
-    #[serde(default)]
-    pub description: String,
     /// RFC3339 timestamp of when the plugin was installed.
     #[serde(default)]
     pub installed_at: Option<String>,
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
+    /// Description from the plugin manifest. Empty when the plugin does not
+    /// declare one, in which case the first command's description is used.
+    #[serde(default)]
+    pub description: String,
+}
+
+/// The description to show for a plugin: its own, or the first command's when
+/// the plugin does not declare one.
+pub fn resolve_plugin_description(plugin: &InstalledPlugin) -> &str {
+    if !plugin.description.is_empty() {
+        return &plugin.description;
+    }
+    plugin
+        .commands
+        .first()
+        .map(|cmd| cmd.description.as_str())
+        .unwrap_or("")
+}
+
+/// Registry entries prepared for display, with each description resolved.
+pub fn plugin_list_entries(registry: &PluginRegistry) -> Vec<InstalledPlugin> {
+    registry
+        .plugins
+        .iter()
+        .map(|plugin| InstalledPlugin {
+            description: resolve_plugin_description(plugin).to_string(),
+            ..plugin.clone()
+        })
+        .collect()
 }
 
 fn registry_path() -> Result<PathBuf> {
