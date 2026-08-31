@@ -534,6 +534,12 @@ fn generate_dashboard(contract: String, network: String) -> Result<()> {
         "Avg Execution Time",
         &format!("{:.1}ms", dashboard.summary.avg_execution_time_ms),
     );
+    if let Some(avg_mem) = dashboard.summary.avg_memory_used_bytes {
+        p::kv("Avg Memory Used", &format!("{:.0} bytes", avg_mem));
+    }
+    if let Some(max_mem) = dashboard.summary.max_memory_used_bytes {
+        p::kv("Peak Memory Used", &format!("{:.0} bytes", max_mem));
+    }
     p::kv(
         "Success Rate",
         &format!("{:.1}%", dashboard.summary.success_rate),
@@ -712,6 +718,12 @@ fn dashboard(contract: String, network: String) -> Result<()> {
         "Avg Execution Time",
         &format!("{:.2}ms", report.summary.avg_execution_time_ms),
     );
+    if let Some(avg_mem) = report.summary.avg_memory_used_bytes {
+        p::kv("Avg Memory Used", &format!("{:.0} bytes", avg_mem));
+    }
+    if let Some(max_mem) = report.summary.max_memory_used_bytes {
+        p::kv("Peak Memory Used", &format!("{:.0} bytes", max_mem));
+    }
     p::kv(
         "Success Rate",
         &format!("{:.1}%", report.summary.success_rate),
@@ -871,6 +883,12 @@ fn report(contract: String, network: String) -> Result<()> {
         "Avg Execution Time",
         &format!("{:.2}ms", report.summary.avg_execution_time_ms),
     );
+    if let Some(avg_mem) = report.summary.avg_memory_used_bytes {
+        p::kv("Avg Memory Used", &format!("{:.0} bytes", avg_mem));
+    }
+    if let Some(max_mem) = report.summary.max_memory_used_bytes {
+        p::kv("Peak Memory Used", &format!("{:.0} bytes", max_mem));
+    }
     p::kv(
         "Success Rate",
         &format!("{:.1}%", report.summary.success_rate),

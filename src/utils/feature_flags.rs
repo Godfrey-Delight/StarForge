@@ -466,7 +466,7 @@ CREATE TABLE IF NOT EXISTS flag_definitions (
 );
 
 CREATE TABLE IF NOT EXISTS flag_states (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              INTEGER PRIMARY KEY,
     flag_name       TEXT NOT NULL,
     version         INTEGER NOT NULL,
     enabled         INTEGER NOT NULL,
@@ -490,7 +490,7 @@ CREATE TABLE IF NOT EXISTS flag_overrides (
 );
 
 CREATE TABLE IF NOT EXISTS flag_metrics (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          INTEGER PRIMARY KEY,
     flag_name   TEXT NOT NULL,
     event_type  TEXT NOT NULL,
     user_id     TEXT NOT NULL,

@@ -833,7 +833,7 @@ async fn handle_patterns(
         .matched_patterns
         .iter()
         .filter(|m| {
-            category_filter.is_none_or(|cat| {
+            category_filter.map_or(true, |cat| {
                 m.category.to_string().to_lowercase().replace(' ', "_") == cat.to_lowercase()
             })
         })
@@ -843,7 +843,7 @@ async fn handle_patterns(
         .matched_anti_patterns
         .iter()
         .filter(|m| {
-            category_filter.is_none_or(|cat| {
+            category_filter.map_or(true, |cat| {
                 m.category.to_string().to_lowercase().replace(' ', "_") == cat.to_lowercase()
             })
         })
@@ -960,7 +960,7 @@ fn handle_library(category_filter: Option<&str>, show_anti: bool, verbose: bool)
         let items: Vec<_> = pattern_library::all_anti_patterns()
             .into_iter()
             .filter(|ap| {
-                category_filter.is_none_or(|cat| {
+                category_filter.map_or(true, |cat| {
                     ap.category.to_string().to_lowercase().replace(' ', "_") == cat.to_lowercase()
                 })
             })
@@ -992,7 +992,7 @@ fn handle_library(category_filter: Option<&str>, show_anti: bool, verbose: bool)
         let items: Vec<_> = pattern_library::all_patterns()
             .into_iter()
             .filter(|p| {
-                category_filter.is_none_or(|cat| {
+                category_filter.map_or(true, |cat| {
                     p.category.to_string().to_lowercase().replace(' ', "_") == cat.to_lowercase()
                 })
             })

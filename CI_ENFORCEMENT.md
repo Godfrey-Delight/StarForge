@@ -208,6 +208,9 @@ cargo clippy --locked -- -D warnings
 
 # 5. Verify smoke tests
 cargo test --test cli_smoke --locked
+
+# 6. Verify CLI JSON output stability contracts
+cargo test --test json_contract_stability --locked
 ```
 
 Or run all at once (simulates CI):
@@ -217,17 +220,46 @@ cargo fmt --all --check && \
   cargo build --locked && \
   cargo test --locked && \
   cargo clippy --locked -- -D warnings && \
-  cargo test --test cli_smoke --locked
+  cargo test --test cli_smoke --locked && \
+  cargo test --test json_contract_stability --locked
 ```
+
+The JSON contract stability check prevents stable `--json` fields listed in
+`tests/fixtures/json_contracts/stable-fields-baseline.json` from disappearing
+from `docs/contracts/cli-json-fields.json` unless they are first marked
+`deprecated`.
 
 ---
 
-### Pre-PR Verification
+### Branch Protections & Merge Requirements
 
-Before opening a PR:
+StarForge enforces GitHub branch protections on the `master` branch:
+
+1. **Required Status Checks**: All CI workflow jobs (`fmt`, `msrv`, `deny`, `build-and-test`, `clippy`, `smoke`, `cli-macos`, `cli-windows`) must pass before a pull request can be merged.
+2. **Conflict-Free Enforcement**: Pull requests with merge conflicts are blocked from merging. Branches must be cleanly rebased against `master`.
+3. **Approved Reviews**: PRs require maintainer review and approval with all conversational threads resolved.
+
+### Pre-PR Verification with Preflight Script
+
+To verify all merge gates locally before pushing and opening a PR, use the preflight script:
 
 ```bash
-# 1. Ensure your branch is up to date
+# 1. Run standard preflight merge gates
+./scripts/preflight-pr.sh
+
+# 2. Fast subset check during active development
+./scripts/preflight-pr.sh --quick
+
+# 3. Full suite check before final submission
+./scripts/preflight-pr.sh --all
+```
+
+The script exits with a non-zero exit code if any gate fails, pinpointing the issue immediately.
+
+You can also run individual gate commands manually:
+
+```bash
+# 1. Ensure your branch is up to date and conflict-free
 git fetch origin
 git rebase origin/master
 

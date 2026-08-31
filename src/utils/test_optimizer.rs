@@ -177,6 +177,10 @@ pub struct TestOptimizer {
 impl TestOptimizer {
     pub fn new() -> Result<Self> {
         let config_dir = crate::utils::config::config_dir().join("test_optimizer");
+        Self::with_config_dir(config_dir)
+    }
+
+    pub fn with_config_dir(config_dir: PathBuf) -> Result<Self> {
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir)
                 .with_context(|| format!("Failed to create {}", config_dir.display()))?;
@@ -312,6 +316,8 @@ impl TestOptimizer {
             TestCategory::Performance
         } else if lower.contains("prop") || lower.contains("property") || lower.contains("fuzz") {
             TestCategory::Property
+        } else if lower.contains("general") {
+            TestCategory::General
         } else if lower.contains("unit") || lower.contains("test_") {
             TestCategory::Unit
         } else {
@@ -1160,11 +1166,8 @@ mod tests {
     use super::*;
 
     fn create_test_optimizer() -> TestOptimizer {
-        TestOptimizer {
-            config_dir: PathBuf::from("/tmp/test_optimizer"),
-            history: HashMap::new(),
-            cache: HashMap::new(),
-        }
+        let dir = tempfile::tempdir().expect("tempdir");
+        TestOptimizer::with_config_dir(dir.keep()).unwrap()
     }
 
     #[test]
