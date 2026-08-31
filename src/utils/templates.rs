@@ -78,6 +78,49 @@ impl MaintenanceStatus {
     }
 }
 
+fn deserialize_findings_opt<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct FindingsVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for FindingsVisitor {
+        type Value = Option<String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a string, integer, or null")
+        }
+
+        fn visit_none<E>(self) -> std::result::Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> std::result::Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_str<E>(self, value: &str) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value.to_string()))
+        }
+
+        fn visit_string<E>(self, value: String) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value.to_string()))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> std::result::Result<Self::Value, E> {
+            Ok(Some(value.to_string()))
+        }
+    }
+
+    deserializer.deserialize_any(FindingsVisitor)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityReview {
     pub status: String,

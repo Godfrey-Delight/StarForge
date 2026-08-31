@@ -690,7 +690,7 @@ async fn run() {
                 if let Some(tip) =
                     utils::context_help::proactive_tip(&command_name, &history_entries)
                 {
-                    utils::print::info(&tip);
+                    eprintln!("{}", tip);
                 }
             }
         }

@@ -111,6 +111,7 @@ pub mod network_guard;
 pub mod mock_soroban;
 pub mod multi_network_deploy;
 pub mod multisig;
+pub mod multisig_audit;
 pub mod multisig_builder;
 pub mod mutation;
 pub mod network_sim;

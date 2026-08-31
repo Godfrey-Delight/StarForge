@@ -227,10 +227,6 @@ pub struct InstalledPlugin {
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
-    /// Description from the plugin manifest. Empty when the plugin does not
-    /// declare one, in which case the first command's description is used.
-    #[serde(default)]
-    pub description: String,
 }
 
 /// The description to show for a plugin: its own, or the first command's when
@@ -242,18 +238,19 @@ pub fn resolve_plugin_description(plugin: &InstalledPlugin) -> &str {
     plugin
         .commands
         .first()
-        .map(|cmd| cmd.description.as_str())
-        .unwrap_or("")
+        .map(|c| c.description.clone())
+        .unwrap_or_default()
 }
 
-/// Registry entries prepared for display, with each description resolved.
-pub fn plugin_list_entries(registry: &PluginRegistry) -> Vec<InstalledPlugin> {
-    registry
-        .plugins
+/// Return registry entries with `description` resolved for display (see
+/// [`resolve_plugin_description`]).
+pub fn plugin_list_entries(reg: &PluginRegistry) -> Vec<InstalledPlugin> {
+    reg.plugins
         .iter()
-        .map(|plugin| InstalledPlugin {
-            description: resolve_plugin_description(plugin).to_string(),
-            ..plugin.clone()
+        .cloned()
+        .map(|mut p| {
+            p.description = resolve_plugin_description(&p);
+            p
         })
         .collect()
 }
@@ -351,9 +348,9 @@ pub fn install_plugin(
         trust,
         starforge_version: starforge_version.to_string(),
         plugin_version: plugin_version.to_string(),
+        description: description.to_string(),
         installed_at: Some(now),
         commands,
-        description: description.to_string(),
     });
     reg.plugins.sort_by(|a, b| a.name.cmp(&b.name));
     save_registry(&reg)?;

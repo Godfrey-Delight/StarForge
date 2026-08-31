@@ -1151,16 +1151,27 @@ pub fn set_test_config_dir(path: PathBuf) {
 pub const CONFIG_DIR_ENV: &str = "STARFORGE_CONFIG_DIR";
 
 pub fn config_dir() -> PathBuf {
-    if let Some(path) = TEST_CONFIG_DIR_OVERRIDE.with(|p| p.borrow().clone()) {
-        return path;
-    }
-    if let Some(dir) = std::env::var_os(CONFIG_DIR_ENV) {
-        if !dir.is_empty() {
-            return PathBuf::from(dir);
+    let home = resolve_home_dir();
+    home.join(".starforge")
+}
+
+/// Resolve the user's home directory, honouring the `USERPROFILE` (Windows)
+/// and `HOME` (Unix) environment variables ahead of `dirs::home_dir()`.
+///
+/// Honouring the env vars lets callers (especially tests) redirect the config
+/// directory to a temporary location for isolation. In normal use the env var
+/// matches the real home, so the resolved path is identical to
+/// `dirs::home_dir()`.
+fn resolve_home_dir() -> PathBuf {
+    if let Some(home) = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .filter(|v| !v.is_empty())
+    {
+        if let Some(home) = home.to_str().filter(|s| !s.trim().is_empty()) {
+            return PathBuf::from(home);
         }
     }
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".starforge")
+    dirs::home_dir().expect("Could not find home directory")
 }
 
 pub fn get_data_dir() -> Result<PathBuf> {
