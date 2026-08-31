@@ -10,12 +10,37 @@ Complete guide for developers contributing to or extending StarForge.
 4. [Project Structure](#project-structure)
 5. [Code Style Guide](#code-style-guide)
 6. [Adding New Features](#adding-new-features)
-7. [Testing](#testing)
-8. [Documentation](#documentation)
-9. [Common Tasks](#common-tasks)
-10. [Debugging](#debugging)
-11. [Release Process](#release-process)
-12. [Database Migrations](#database-migrations)
+7. [Cargo.lock Reproducibility & Cross-Platform Lock](#cargolock-reproducibility--cross-platform-lock)
+8. [Testing](#testing)
+9. [Documentation](#documentation)
+10. [Common Tasks](#common-tasks)
+11. [Debugging](#debugging)
+12. [Release Process](#release-process)
+13. [Database Migrations](#database-migrations)
+
+---
+
+## Cargo.lock Reproducibility & Cross-Platform Lock
+
+StarForge strictly enforces `Cargo.lock` reproducibility across all supported operating systems (Linux, macOS, Windows).
+
+### Requirements & Principles
+
+1. **Deterministic Builds**: Locked builds (`cargo build --locked` / `cargo check --locked`) must resolve identical dependency versions across Linux, macOS, and Windows.
+2. **No Mutating Builds**: Running standard CI steps or local build commands must never mutate `Cargo.lock`.
+3. **Out-of-Sync Prevention**: Modifying dependencies in `Cargo.toml` without updating `Cargo.lock` via `cargo update -p <crate>` will fail CI quality checks.
+
+### Verification CLI Command
+
+Developers can verify lockfile reproducibility locally prior to committing:
+
+```bash
+# Verify lockfile reproducibility for the current directory
+starforge verify lockfile
+
+# Verify lockfile in a specific workspace path with JSON output
+starforge verify lockfile --path ./my-workspace --json
+```
 
 ---
 
@@ -812,6 +837,30 @@ Update these files when adding features:
 - Keep examples up-to-date
 - Add diagrams for complex flows
 - Update [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) when adding or renaming CLI subcommands
+
+### Command cheat sheet (auto-generated)
+
+[docs/COMMAND_CHEATSHEET.md](docs/COMMAND_CHEATSHEET.md) is **auto-generated from clap
+command metadata** by the crate's `build.rs`. It is committed so
+it can be linked from the README and the docs site, but you must **never edit it by hand**.
+
+**Regenerating the cheat sheet**
+
+When you add, rename, or remove a top-level subcommand, or change its one-line
+description, update the clap metadata (the `Commands` enum and `MAJOR_SUBCOMMANDS`
+table in `build.rs`) and then regenerate:
+
+```bash
+cargo build          # build.rs rewrites docs/COMMAND_CHEATSHEET.md
+git add docs/COMMAND_CHEATSHEET.md build.rs
+git commit
+```
+
+> If the committed cheat sheet is out of date, CI fails the
+> `Docs Cheat Sheet (anti-drift)` check with a `git diff --exit-code` error.
+> Note: hidden commands (`#[command(hide)]`) and internal commands listed in
+> `INTERNAL_COMMANDS` (`external`, `autocomplete`, `man`, `feature-flags`, `help`)
+> are excluded from the cheat sheet consistently.
 
 ---
 

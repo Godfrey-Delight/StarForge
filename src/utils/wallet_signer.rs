@@ -113,6 +113,7 @@ pub fn prompt_hardware_confirmation(
         dry_run: false,
         prompt: Some("Proceed with hardware wallet signing?".to_string()),
         require_type_confirmation: network == "mainnet",
+        ..Default::default()
     };
 
     if !confirmation::confirm_operation(&summary, &confirm_config)? {
