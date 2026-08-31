@@ -250,8 +250,8 @@ fn classify_claude_error(err: &anyhow::Error) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::ai_audit::AuditLevel;
+    use super::*;
 
     #[test]
     fn test_validate_empty_contract_code() {

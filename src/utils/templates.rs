@@ -966,20 +966,6 @@ pub async fn load_registry() -> Result<TemplateRegistry> {
     let cache_path = registry_path()?;
 
     // Use cache if it exists and is fresh and we are not forcing a refresh.
-    if !force_refresh {
-        if let Ok(metadata) = fs::metadata(&cache_path) {
-            if let Ok(modified) = metadata.modified() {
-                use std::time::{Duration, SystemTime};
-                let ttl = Duration::from_secs(24 * 60 * 60); // 24 hours
-                if SystemTime::now().duration_since(modified).unwrap_or(ttl) < ttl {
-                    let contents = fs::read_to_string(&cache_path).with_context(|| {
-                        format!("Failed to read cached registry at {}", cache_path.display())
-                    })?;
-                    let registry: TemplateRegistry = serde_json::from_str(&contents)
-                        .with_context(|| "Failed to parse cached template registry")?;
-                    return Ok(registry);
-                }
-            }
     if !force_refresh && is_cache_fresh(&cache_path) {
         if let Some(registry) = read_cached_registry(&cache_path) {
             return Ok(registry);
@@ -2355,9 +2341,6 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            changelog: None,
-            repository: None,
-            security_review: None,
         }
     }
 
@@ -2695,9 +2678,6 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            changelog: None,
-            repository: None,
-            security_review: None,
         });
 
         // Test name search
@@ -2752,9 +2732,6 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            changelog: None,
-            repository: None,
-            security_review: None,
         };
 
         let dest = tmp.path().join(&entry.name);
@@ -2811,9 +2788,6 @@ mod tests {
             documentation: None,
             categories: Vec::new(),
             featured: false,
-            changelog: None,
-            repository: None,
-            security_review: None,
         }
     }
 

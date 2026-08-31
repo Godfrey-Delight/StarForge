@@ -300,8 +300,6 @@ const STOP_WORDS: &[&str] = &[
     "after", "above", "below", "between", "out", "off", "over", "under", "again", "further",
     "then", "once", "and", "but", "or", "nor", "not", "so", "very", "just", "than", "too", "also",
     "here", "there", "when", "where", "why", "how", "all", "each", "every", "both", "few", "more",
-    "most", "other", "some", "such", "no", "only", "own", "same", "now", "if", "please", "show",
-    "me", "want",
     "most", "other", "some", "such", "no", "only", "own", "same", "now", "if", "please", "me",
     "want",
 ];
@@ -394,18 +392,11 @@ fn extract_entities(input: &str) -> ExtractedEntities {
     for i in 0..words.len() {
         if matches!(words[i], "call" | "run" | "execute" | "invoke") && i + 1 < words.len() {
             let func = words[i + 1].trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
+            if func == "contract" {
+                continue;
+            }
             if !func.is_empty() {
                 entities.function_name = Some(func.to_string());
-                break;
-        if matches!(words[i], "call" | "run" | "execute" | "invoke") {
-            if i + 1 < words.len() {
-                let func = words[i + 1].trim_matches(|c: char| !c.is_alphanumeric() && c != '_');
-                if func == "contract" {
-                    continue;
-                }
-                if !func.is_empty() {
-                    entities.function_name = Some(func.to_string());
-                }
             }
         }
     }

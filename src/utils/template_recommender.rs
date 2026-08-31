@@ -524,9 +524,6 @@ mod tests {
             featured: false,
             security_review: None,
             changelog: None,
-            repository_url: None,
-            categories: vec![],
-            featured: false,
         }
     }
 

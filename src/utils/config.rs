@@ -950,7 +950,9 @@ fn write_config_backup(config: &Config) -> Result<std::path::PathBuf> {
     Ok(backup_path)
 }
 
-// Keep the old name so `rollback_config` still compiles.
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn backup_config(config: &Config) -> Result<()> {
     write_config_backup(config).map(|_| ())
 }
@@ -987,7 +989,7 @@ pub fn rollback_config(version: &str) -> Result<()> {
 }
 
 thread_local! {
-    static TEST_CONFIG_DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+    static TEST_CONFIG_DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
 }
 
 pub fn set_test_config_dir(path: PathBuf) {

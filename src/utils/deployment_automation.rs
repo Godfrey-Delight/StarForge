@@ -3,7 +3,7 @@
 //! Provides AI-driven automation for deployment processes, including
 //! pre-deployment checks, automated testing, and deployment execution.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::path::Path;

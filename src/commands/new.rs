@@ -1250,7 +1250,7 @@ async fn scaffold_from_marketplace(name: String, template_name: String) -> Resul
 fn copy_template_contents(src: &Path, dst: &Path, project_name: &str) -> Result<()> {
     let mut entries: Vec<_> = fs::read_dir(src)?.filter_map(|e| e.ok()).collect();
 
-    entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    entries.sort_by_key(|a| a.file_name());
 
     for entry in entries {
         let path = entry.path();

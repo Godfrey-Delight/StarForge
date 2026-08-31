@@ -3,7 +3,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
-use std::sync::Arc;
 
 pub fn db_path() -> PathBuf {
     crate::utils::config::config_dir().join("starforge.db")
@@ -45,10 +44,7 @@ pub struct MigrationResult {
 }
 
 /// Error types for migration operations
-#[derive(Debug, thiserror::Error)]
-use std::fmt;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum MigrationError {
     #[error("Migration version {0} is already applied")]
     AlreadyApplied(i64),
@@ -70,33 +66,6 @@ pub enum MigrationError {
 
     #[error("Migration failed: {0}")]
     MigrationFailed(String),
-impl fmt::Display for MigrationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::AlreadyApplied(v) => write!(f, "Migration version {v} is already applied"),
-            Self::NotFound(v) => write!(f, "Migration version {v} not found"),
-            Self::NothingToRollback => write!(f, "Cannot rollback: no migrations applied"),
-            Self::MissingDependency(v, dep) => {
-                write!(
-                    f,
-                    "Migration version {v} depends on unapplied version {dep}"
-                )
-            }
-            Self::InvalidSequence => {
-                write!(
-                    f,
-                    "Invalid migration sequence: versions must be consecutive"
-                )
-            }
-            Self::UnsupportedVersion(v, min, max) => {
-                write!(
-                    f,
-                    "Database schema version {v} is not supported (minimum: {min}, maximum: {max})"
-                )
-            }
-            Self::MigrationFailed(msg) => write!(f, "Migration failed: {msg}"),
-        }
-    }
 }
 
 pub struct Database {
@@ -185,9 +154,6 @@ impl Database {
 
     /// Get all applied migrations from the database
     pub fn get_applied_migrations(&self) -> Result<Vec<AppliedMigration>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT version, name, applied_at, checksum FROM schema_migrations ORDER BY version",
-        )?;
         let mut stmt = match self.conn.prepare(
             "SELECT version, name, applied_at, checksum FROM schema_migrations ORDER BY version",
         ) {
@@ -329,11 +295,6 @@ impl Database {
             .max()
             .ok_or_else(|| anyhow::anyhow!("No migrations applied"))?;
 
-        if !applied.iter().any(|m| m.version == version) {
-            return Err(anyhow::anyhow!("Migration {} not applied", version));
-        }
-
-        let max_applied = applied.iter().map(|m| m.version).max().unwrap_or(0);
         if version != max_applied {
             return Err(anyhow::anyhow!(
                 "Can only rollback the latest migration ({}), tried to rollback {}",
@@ -355,9 +316,6 @@ impl Database {
                 if let Err(e) = tx.execute(
                     "DELETE FROM schema_migrations WHERE version = ?1",
                     params![version],
-                )?;
-
-                // Update schema version to previous version
                 ) {
                     let msg = e.to_string();
                     if !msg.contains("no such table") {
@@ -370,7 +328,6 @@ impl Database {
                 if let Err(e) = tx.execute(
                     "UPDATE meta SET value = ?1 WHERE key = 'schema_version'",
                     params![previous_version.to_string()],
-                )?;
                 ) {
                     let msg = e.to_string();
                     if !msg.contains("no such table") {
@@ -1203,7 +1160,6 @@ impl Migration for MigrationV1 {
     }
 
     fn up(&self, _conn: &Connection) -> Result<()> {
-    fn up(&self, conn: &Connection) -> Result<()> {
         // This is a no-op since the initial schema is already applied in SCHEMA
         Ok(())
     }
@@ -1414,7 +1370,6 @@ mod tests {
         // Try to rollback a migration that isn't the latest
         let result = db.rollback_migration(0);
         assert!(result.is_err());
-        assert!(result.is_err());
     }
 
     #[test]
@@ -1453,9 +1408,8 @@ mod tests {
     fn migration_v1_down_drops_tables() {
         let db = in_memory_db();
         let migration = MigrationV1 {};
-        let mut conn = db.conn;
-
         let conn = db.conn;
+
         // Verify tables exist before rollback
         let table_count: i64 = conn
             .query_row(
@@ -1467,9 +1421,8 @@ mod tests {
         assert!(table_count > 0);
 
         // Rollback
-        migration.down(&mut conn).unwrap();
-
         migration.down(&conn).unwrap();
+
         // Verify tables are dropped
         let table_count_after: i64 = conn
             .query_row(

@@ -366,7 +366,6 @@ fn infer_category(lower: &str, has_code: bool, signals: &mut Vec<String>) -> Tas
     } else if lower.contains("document") || lower.contains("readme") || lower.contains("explain") {
         TaskCategory::Documentation
     } else if lower.contains("generate") || lower.contains("implement") || lower.contains("write") {
-        if has_code {
         if has_code
             || lower.contains("contract")
             || lower.contains("code")
@@ -634,8 +633,6 @@ pub fn model_performance_stats(days: Option<u32>) -> Result<Vec<ModelPerformance
                     },
                     avg_latency_ms: latency.checked_div(total).unwrap_or(0),
                     avg_tokens: tokens.checked_div(total).unwrap_or(0),
-                    avg_latency_ms: if total > 0 { latency / total } else { 0 },
-                    avg_tokens: if total > 0 { tokens / total } else { 0 },
                     total_calls: total,
                 }
             },

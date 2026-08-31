@@ -54,7 +54,7 @@ pub fn analyze_deployments(
         .into_iter()
         .filter(|record| {
             record.network == network
-                && contract_id.is_none_or(|cid| record.contract_id.as_deref() == Some(cid))
+                && contract_id.map_or(true, |cid| record.contract_id.as_deref() == Some(cid))
         })
         .collect();
 

@@ -158,9 +158,6 @@ impl SecurityPatterns {
                 let mut found_storage_after = false;
                 for candidate in &lines[(i + 1)..std::cmp::min(i + 10, lines.len())] {
                     let candidate = candidate.trim();
-                    if candidate.contains("storage") && candidate.contains("set") {
-                for j in (i + 1)..std::cmp::min(i + 10, lines.len()) {
-                    let candidate = lines[j].trim();
                     if (candidate.contains("storage") || candidate.contains("set_"))
                         && candidate.contains("set")
                     {

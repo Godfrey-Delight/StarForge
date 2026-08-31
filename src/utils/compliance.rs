@@ -1282,9 +1282,7 @@ pub fn perform_risk_assessment(
     // Determine risk level. A blocking policy violation is a hard stop
     // regardless of the averaged score, consistent with `approved_for_deployment`
     // below also refusing deployment whenever one is present.
-    let overall_level = if failed_blocking > 0 {
-        RiskLevel::Critical
-    } else if overall_score >= 70 {
+    let overall_level = if failed_blocking > 0 || overall_score >= 70 {
         RiskLevel::Critical
     } else if overall_score >= 50 {
         RiskLevel::High

@@ -84,7 +84,7 @@ pub struct GasUsageRecord {
 }
 
 thread_local! {
-    static TEST_METRICS_DIR: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+    static TEST_METRICS_DIR: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
 }
 
 fn metrics_dir() -> Result<PathBuf> {
