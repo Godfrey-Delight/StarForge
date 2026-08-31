@@ -2152,7 +2152,7 @@ async fn handle_multisig(cmd: MultisigCommands) -> Result<()> {
             hardware,
             hd_path,
             network,
-        } => multisig_sign(name, transaction, output, hardware, hd_path, network),
+        } => multisig_sign(name, transaction, output, hardware, hd_path, network).await,
         MultisigCommands::List => multisig_list(),
         MultisigCommands::Show { name } => multisig_show(name),
         MultisigCommands::Submit {
@@ -2262,7 +2262,7 @@ fn multisig_create(
     Ok(())
 }
 
-fn multisig_sign(
+async fn multisig_sign(
     name: String,
     transaction: PathBuf,
     output: Option<PathBuf>,
@@ -2273,6 +2273,7 @@ fn multisig_sign(
     config::validate_wallet_name(&name)?;
     config::validate_file_path(&transaction, Some("json"))?;
     config::validate_network(&network)?;
+    crate::utils::network_guard::verify(&network).await?;
 
     let account = multisig::load_account(&name)?;
     let cfg = config::load()?;
@@ -2468,6 +2469,8 @@ async fn multisig_submit(
             tx.status
         );
     }
+
+    crate::utils::network_guard::verify(&network).await?;
 
     p::step(1, 2, "Combining signatures into final envelopeâ€¦");
     let signed_xdr = multisig::combine_signatures(&tx.transaction_xdr, &tx.signatures)?;

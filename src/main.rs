@@ -47,6 +47,11 @@ struct Cli {
     /// (also settable via $STARFORGE_NON_INTERACTIVE).
     #[arg(long, global = true)]
     non_interactive: bool,
+
+    /// Allow signing when the configured passphrase differs from the connected endpoint.
+    /// This is unsafe and should only be used with a deliberately trusted endpoint.
+    #[arg(long, global = true)]
+    allow_network_passphrase_mismatch: bool,
 }
 
 #[derive(Subcommand)]
@@ -116,6 +121,9 @@ enum Commands {
     /// Deployment history, rollback, verification, and dashboard
     #[command(subcommand)]
     Deployments(commands::deployments::DeploymentsCommands),
+    /// Generate CI/CD configuration templates (GitHub Actions, GitLab CI, Jenkins)
+    #[command(subcommand)]
+    Cicd(commands::cicd::CicdCommands),
     /// Show starforge config and environment info
     Info,
     /// Manage AI prompt templates and versioning
@@ -196,6 +204,10 @@ enum Commands {
     /// Manage third-party plugins
     #[command(subcommand)]
     Plugin(commands::plugin::PluginCommands),
+
+    /// Check PR readiness (CI status and merge conflicts)
+    #[command(subcommand)]
+    Pr(commands::pr::PrCommands),
 
     /// AI mutation testing for Soroban contracts
     #[command(subcommand)]
@@ -401,6 +413,7 @@ async fn run() {
     OUTPUT_MODE_INIT.call_once(|| {});
     utils::output::set_json_mode(cli.json);
     utils::interactive::set_non_interactive(cli.non_interactive);
+    utils::network_guard::set_allow_mismatch(cli.allow_network_passphrase_mismatch);
 
     // Initialise structured logging before anything else runs.
     let log_cfg =
@@ -446,6 +459,7 @@ async fn run() {
         Commands::Inspect(_) => "inspect",
         Commands::Deploy(_) => "deploy",
         Commands::Deployments(_) => "deployments",
+        Commands::Cicd(_) => "cicd",
         Commands::Info => "info",
         Commands::Prompts(_) => "prompts",
         Commands::Explain(_) => "explain",
@@ -465,6 +479,7 @@ async fn run() {
         Commands::Gas(_) => "gas",
         Commands::Cost(_) => "cost",
         Commands::Plugin(_) => "plugin",
+        Commands::Pr(_) => "pr",
         Commands::Mutate(_) => "mutate",
         Commands::Privacy(_) => "privacy",
         Commands::Project(_) => "project",
@@ -540,6 +555,7 @@ async fn run() {
         Commands::Debug(cmd) => commands::debug::handle(cmd).await,
         Commands::Deploy(args) => commands::deploy::handle(args).await,
         Commands::Deployments(cmd) => commands::deployments::handle(cmd).await,
+        Commands::Cicd(cmd) => commands::cicd::handle(cmd),
         Commands::Info => commands::info::handle().await,
         Commands::Prompts(cmd) => commands::prompts::handle(&cmd).await,
         Commands::Explain(ref cmd) => commands::explain::handle(cmd).await,
@@ -573,6 +589,7 @@ async fn run() {
         Commands::Test(args) => commands::test::handle(args).await,
         Commands::Gas(args) => commands::gas::handle(args).await,
         Commands::Plugin(args) => commands::plugin::handle(args).await,
+        Commands::Pr(cmd) => commands::pr::handle(cmd).await,
         Commands::Mutate(cmd) => commands::mutate::handle(cmd).await,
         Commands::Privacy(cmd) => commands::privacy::handle(cmd).await,
         Commands::Template(args) => commands::template::handle(args).await,

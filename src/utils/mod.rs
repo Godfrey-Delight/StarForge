@@ -108,6 +108,7 @@ pub mod multi_network_deploy;
 pub mod multisig;
 pub mod multisig_builder;
 pub mod mutation;
+pub mod network_guard;
 pub mod network_sim;
 pub mod network_simulator;
 pub mod node;
