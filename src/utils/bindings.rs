@@ -75,7 +75,24 @@ pub fn generate_bindings(wasm_path: &Path, language: BindingLanguage) -> Result<
         anyhow::bail!("No contract functions found in WASM metadata");
     }
 
-    generate_from_metadata(&metadata, language)
+    match language {
+        BindingLanguage::Rust => Ok(generate_rust(&metadata)),
+        BindingLanguage::TypeScript => Ok(generate_typescript(&metadata)),
+        BindingLanguage::Python => Ok(generate_python(&metadata)),
+        BindingLanguage::Go => Ok(generate_go(&metadata)),
+    }
+}
+
+pub fn generate_from_metadata(
+    metadata: &ContractMetadata,
+    language: BindingLanguage,
+) -> Result<String> {
+    match language {
+        BindingLanguage::Rust => Ok(generate_rust(metadata)),
+        BindingLanguage::TypeScript => Ok(generate_typescript(metadata)),
+        BindingLanguage::Python => Ok(generate_python(metadata)),
+        BindingLanguage::Go => Ok(generate_go(metadata)),
+    }
 }
 
 /// Generate a language binding from already-parsed contract metadata.

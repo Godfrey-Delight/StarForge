@@ -136,7 +136,7 @@ pub fn get_deployment_history(contract_id: Option<&str>, limit: usize) -> Result
     let filtered: Vec<_> = entries
         .iter()
         .filter(|e| e.action == "deploy_contract")
-        .filter(|e| contract_id.is_none_or(|c| e.resource_id == c))
+        .filter(|e| contract_id.map_or(true, |c| e.resource_id == c))
         .cloned()
         .collect();
 

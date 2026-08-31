@@ -21,6 +21,9 @@ pub trait Migration: Send + Sync {
     fn description(&self) -> &str;
 
     /// Apply the migration (upgrade)
+    ///
+    /// Takes a shared reference so a migration can run inside a
+    /// `rusqlite::Transaction`, which only derefs to `&Connection`.
     fn up(&self, conn: &Connection) -> Result<()>;
 
     /// Rollback the migration (downgrade)
@@ -135,7 +138,11 @@ impl Database {
         self.ensure_column("wallets", "secret_key", "TEXT")?;
         self.ensure_column("wallets", "rotation_history", "TEXT NOT NULL DEFAULT '[]'")?;
 
-        // Run migrations if this is not a fresh database
+        // Run migrations if this is not a fresh database.
+        //
+        // `get_meta` returns `Ok(None)` for a key that is absent, so the
+        // presence of the row — not the success of the lookup — decides which
+        // branch a fresh database takes.
         if self.get_meta("schema_version")?.is_some() {
             self.run_migrations()?;
         } else {
@@ -158,16 +165,35 @@ impl Database {
 
     /// Get the current schema version from the database
     pub fn get_current_schema_version(&self) -> Result<i64> {
-        self.get_meta("schema_version")?
-            .and_then(|v| v.parse::<i64>().ok())
-            .ok_or_else(|| anyhow::anyhow!("Schema version not found or invalid"))
+        match self.get_meta("schema_version") {
+            Ok(Some(v)) => v.parse::<i64>().map_err(|e| anyhow::anyhow!(e)),
+            Ok(None) => Ok(0),
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("no such table: meta") {
+                    Ok(0)
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     /// Get all applied migrations from the database
     pub fn get_applied_migrations(&self) -> Result<Vec<AppliedMigration>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = match self.conn.prepare(
             "SELECT version, name, applied_at, checksum FROM schema_migrations ORDER BY version",
-        )?;
+        ) {
+            Ok(s) => s,
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("no such table: schema_migrations") {
+                    return Ok(Vec::new());
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
         let rows = stmt.query_map([], |row| {
             Ok(AppliedMigration {
                 version: row.get(0)?,
@@ -213,10 +239,11 @@ impl Database {
 
     /// Run pending migrations to bring the database to the current schema version
     pub fn run_migrations(&self) -> Result<MigrationResult> {
+        // `schema_version` is the authority on how far the database has been
+        // migrated; `schema_migrations` is the audit log of what ran. A
+        // database whose version trails the log is still upgraded, and the log
+        // entry is rewritten rather than duplicated.
         let current_version = self.get_current_schema_version()?;
-        let applied = self.get_applied_migrations()?;
-        let applied_versions: std::collections::HashSet<i64> =
-            applied.iter().map(|m| m.version).collect();
 
         let mut migrations_applied = Vec::new();
 
@@ -224,10 +251,8 @@ impl Database {
         if current_version < CURRENT_SCHEMA_VERSION {
             // Apply migrations from current_version + 1 to CURRENT_SCHEMA_VERSION
             for version in (current_version + 1)..=CURRENT_SCHEMA_VERSION {
-                if !applied_versions.contains(&version) {
-                    self.apply_migration(version)?;
-                    migrations_applied.push(version);
-                }
+                self.apply_migration(version)?;
+                migrations_applied.push(version);
             }
         }
 
@@ -253,13 +278,14 @@ impl Database {
                 let checksum = self.compute_migration_checksum(version, migration.description())?;
                 let applied_at = chrono::Utc::now().to_rfc3339();
                 tx.execute(
-                    "INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?1, ?2, ?3, ?4)",
+                    "INSERT OR REPLACE INTO schema_migrations (version, name, applied_at, checksum) VALUES (?1, ?2, ?3, ?4)",
                     params![version, migration.description(), applied_at, checksum],
                 )?;
 
                 // Update schema version
                 tx.execute(
-                    "UPDATE meta SET value = ?1 WHERE key = 'schema_version'",
+                    "INSERT INTO meta (key, value) VALUES ('schema_version', ?1)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                     params![version.to_string()],
                 )?;
 
@@ -278,25 +304,27 @@ impl Database {
         let applied = self.get_applied_migrations()?;
         let current_version = self.get_current_schema_version()?;
 
-        // Check if the migration is applied
-        if !applied.iter().any(|m| m.version == version) {
-            return Err(anyhow::anyhow!(
-                "Migration version {} is not applied",
-                version
-            ));
-        }
-
-        // Check if we can rollback (must be the latest applied migration)
+        // Migrations roll back newest first, so anything below the newest
+        // applied version is refused on that ground — whether or not it was
+        // itself applied. Only a version at or above the newest can be
+        // "not applied".
         let max_applied = applied
             .iter()
             .map(|m| m.version)
             .max()
             .ok_or_else(|| anyhow::anyhow!("No migrations applied"))?;
 
-        if version != max_applied {
+        if version < max_applied {
             return Err(anyhow::anyhow!(
                 "Can only rollback the latest migration ({}), tried to rollback {}",
                 max_applied,
+                version
+            ));
+        }
+
+        if !applied.iter().any(|m| m.version == version) {
+            return Err(anyhow::anyhow!(
+                "Migration version {} is not applied",
                 version
             ));
         }
@@ -310,16 +338,23 @@ impl Database {
         // Rollback the migration
         match migration.down(&tx) {
             Ok(()) => {
-                // Remove the migration record if table exists
-                let _ = tx.execute(
+                // A migration's `down` undoes the schema it created, which for
+                // the initial migration includes the runner's own bookkeeping
+                // tables. Re-create them before recording the rollback.
+                tx.execute_batch(MIGRATION_BOOKKEEPING_SCHEMA)?;
+
+                // Remove the migration record
+                tx.execute(
                     "DELETE FROM schema_migrations WHERE version = ?1",
                     params![version],
                 )?;
 
-                // Update schema version to previous version
+                // Update schema version to previous version. This is an upsert
+                // because `meta` may have just been re-created empty.
                 let previous_version = if version > 1 { version - 1 } else { 0 };
-                let _ = tx.execute(
-                    "UPDATE meta SET value = ?1 WHERE key = 'schema_version'",
+                tx.execute(
+                    "INSERT INTO meta (key, value) VALUES ('schema_version', ?1)
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                     params![previous_version.to_string()],
                 )?;
 
@@ -968,6 +1003,25 @@ pub fn export_to_toml(db: &Database) -> Result<String> {
     Ok(toml::to_string_pretty(&db.load_config()?)?)
 }
 
+/// The tables the migration runner needs to record what it has done.
+///
+/// A migration's `down` undoes the schema it created, and for the initial
+/// migration that includes these tables. The runner re-creates them before
+/// writing the rollback down, so its own bookkeeping survives.
+const MIGRATION_BOOKKEEPING_SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL,
+    checksum TEXT NOT NULL
+);
+";
+
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
@@ -1153,9 +1207,15 @@ impl Migration for MigrationV1 {
     }
 
     fn down(&self, conn: &Connection) -> Result<()> {
-        // Rollback: drop all tables
+        // Rollback: drop every table the initial bootstrap created. That
+        // includes the feature-flag tables, which `Database::initialize`
+        // applies alongside SCHEMA.
         conn.execute_batch(
-            "DROP TABLE IF EXISTS events;
+            "DROP TABLE IF EXISTS flag_metrics;
+             DROP TABLE IF EXISTS flag_overrides;
+             DROP TABLE IF EXISTS flag_states;
+             DROP TABLE IF EXISTS flag_definitions;
+             DROP TABLE IF EXISTS events;
              DROP TABLE IF EXISTS templates;
              DROP TABLE IF EXISTS plugins;
              DROP TABLE IF EXISTS config_kv;
@@ -1402,7 +1462,10 @@ mod tests {
         // Verify tables exist before rollback
         let table_count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+                // `sqlite_%` names are SQLite's own internals (sqlite_sequence
+                // is created by the AUTOINCREMENT columns) and are not part of
+                // the schema a migration owns.
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
                 [],
                 |r| r.get(0),
             )
@@ -1415,7 +1478,10 @@ mod tests {
         // Verify tables are dropped
         let table_count_after: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+                // `sqlite_%` names are SQLite's own internals (sqlite_sequence
+                // is created by the AUTOINCREMENT columns) and are not part of
+                // the schema a migration owns.
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
                 [],
                 |r| r.get(0),
             )
@@ -1440,6 +1506,9 @@ mod tests {
                 "UPDATE meta SET value = '0' WHERE key = 'schema_version'",
                 [],
             )
+            .unwrap();
+        db.conn
+            .execute("DELETE FROM schema_migrations WHERE version = 1", [])
             .unwrap();
 
         // This should apply migration 1

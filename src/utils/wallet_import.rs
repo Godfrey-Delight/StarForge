@@ -949,8 +949,13 @@ mod tests {
     #[test]
     fn a_non_ascii_name_is_accepted_but_warned_about() {
         // Cyrillic 'а' renders like Latin 'a'.
-        let doc = backup_json(&wallet_json("\u{0430}lice"));
-        let parsed = parse_wallet_backup(&doc).unwrap();
+        let entry_str = wallet_json("\u{0430}lice");
+        let mut backup: WalletBackup = serde_json::from_str(&backup_json_v2(&entry_str)).unwrap();
+        let tag = compute_integrity_tag(&backup, BACKUP_HMAC_KEY)
+            .expect("compute_integrity_tag must succeed");
+        backup.integrity_tag = Some(tag);
+        let json = serde_json::to_string(&backup).unwrap();
+        let parsed = parse_wallet_backup(&json).unwrap();
 
         assert_eq!(parsed.warnings.len(), 1);
         assert!(parsed.warnings[0].contains("non-ASCII"));

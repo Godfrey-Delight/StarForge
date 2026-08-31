@@ -11,6 +11,13 @@ fn starforge(home: &std::path::Path) -> Command {
     cmd.arg("-q");
     cmd.env("HOME", home);
     cmd.env("USERPROFILE", home);
+    // HOME / USERPROFILE alone do not isolate the CLI on Windows, where
+    // `dirs::home_dir()` resolves through SHGetKnownFolderPath(FOLDERID_Profile)
+    // and ignores both. Without this, every test in this file shares the one
+    // real config directory, and the tests that mutate networks concurrently
+    // clobber each other. Set explicitly rather than inherited so a
+    // STARFORGE_CONFIG_DIR already in the environment cannot deisolate the run.
+    cmd.env("STARFORGE_CONFIG_DIR", home.join(".starforge"));
     cmd
 }
 
@@ -85,6 +92,49 @@ fn template_list_exits_zero() {
         .output()
         .expect("spawn template list");
     assert_success(&output, "starforge template list");
+}
+
+#[test]
+fn template_validate_accepts_the_bundled_registry() {
+    let home = isolated_home();
+    let output = starforge(home.path())
+        .args(["template", "validate", "templates/registry.json"])
+        .output()
+        .expect("spawn template validate");
+    assert_success(&output, "starforge template validate");
+}
+
+#[test]
+fn template_validate_reports_the_offending_field() {
+    let home = isolated_home();
+    let bad = home.path().join("bad-registry.json");
+    std::fs::write(
+        &bad,
+        r#"{"templates":[{"name":"broken","version":"v1","description":"d",
+            "author":"a","tags":[],"source":{"type":"builtin","id":"broken"}}]}"#,
+    )
+    .expect("write bad registry");
+
+    let output = starforge(home.path())
+        .args(["template", "validate"])
+        .arg(&bad)
+        .output()
+        .expect("spawn template validate");
+
+    assert!(
+        !output.status.success(),
+        "an invalid registry should exit non-zero"
+    );
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        combined.contains("templates[0].version"),
+        "output should name the offending field, got: {}",
+        combined
+    );
 }
 
 #[test]
@@ -531,7 +581,13 @@ fn multisig_create_and_sign_workflow() {
     let created_path = entries[0].path();
 
     let sign_alice = starforge(home.path())
-        .args(["multisig", "sign", created_path.to_str().unwrap(), "alice"])
+        .args([
+            "multisig",
+            "sign",
+            "--wallet",
+            "alice",
+            created_path.to_str().unwrap(),
+        ])
         .output()
         .expect("spawn multisig sign alice");
     assert_success(&sign_alice, "starforge multisig sign alice");
@@ -546,7 +602,13 @@ fn multisig_create_and_sign_workflow() {
     assert!(status_out.contains("50%"));
 
     let sign_bob = starforge(home.path())
-        .args(["multisig", "sign", created_path.to_str().unwrap(), "bob"])
+        .args([
+            "multisig",
+            "sign",
+            "--wallet",
+            "bob",
+            created_path.to_str().unwrap(),
+        ])
         .output()
         .expect("spawn multisig sign bob");
     assert_success(&sign_bob, "starforge multisig sign bob");
@@ -563,8 +625,9 @@ fn multisig_create_and_sign_workflow() {
         .args([
             "multisig",
             "export",
-            created_path.to_str().unwrap(),
+            "--output",
             export_path.to_str().unwrap(),
+            created_path.to_str().unwrap(),
         ])
         .output()
         .expect("spawn multisig export");
@@ -575,8 +638,9 @@ fn multisig_create_and_sign_workflow() {
         .args([
             "multisig",
             "import",
-            export_path.to_str().unwrap(),
+            "--output",
             import_path.to_str().unwrap(),
+            export_path.to_str().unwrap(),
         ])
         .output()
         .expect("spawn multisig import");
@@ -618,8 +682,9 @@ fn multisig_from_template_creates_proposal() {
         .args([
             "multisig",
             "from-template",
-            "escrow",
+            "--output",
             output_path.to_str().unwrap(),
+            "escrow",
         ])
         .output()
         .expect("spawn multisig from-template");

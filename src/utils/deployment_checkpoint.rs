@@ -236,6 +236,7 @@ pub fn is_pid_active(pid: u32) -> bool {
 }
 
 /// Concurrency file lock guard.
+#[derive(Debug)]
 pub struct DeploymentLock {
     lock_path: PathBuf,
 }
@@ -452,7 +453,7 @@ mod tests {
 
     fn set_temp_config_dir() -> TempDir {
         let dir = TempDir::new().unwrap();
-        std::env::set_var("HOME", dir.path());
+        crate::utils::config::set_test_config_dir(dir.path().to_path_buf());
         dir
     }
 

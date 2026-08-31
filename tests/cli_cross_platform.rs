@@ -105,13 +105,112 @@ fn test_cross_platform_home_dir_resolution() {
         .expect("spawn wallet list");
     assert_success(&output, "wallet list with isolated home");
 
-    // Check that HOME / USERPROFILE env var was respected
-    // The .starforge directory or wallet config should be created inside the temp home
+    // The isolated config directory must actually be used. This is asserted
+    // unconditionally on purpose: HOME / USERPROFILE alone cannot isolate the
+    // CLI on Windows, where `dirs::home_dir()` resolves through
+    // SHGetKnownFolderPath(FOLDERID_Profile) and ignores both variables. The
+    // isolation therefore comes from STARFORGE_CONFIG_DIR (see
+    // `starforge_cmd`), which the CLI honors on every platform.
     let starforge_dir = home_path.join(".starforge");
-    if starforge_dir.exists() {
-        assert!(
-            starforge_dir.is_dir(),
-            ".starforge in isolated home should be a directory"
+    assert!(
+        starforge_dir.is_dir(),
+        "STARFORGE_CONFIG_DIR was not honored: expected {} to be created.\nStdout: {}\nStderr: {}",
+        starforge_dir.display(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_cross_platform_config_dir_is_isolated_from_real_home() {
+    // Two commands pointed at two different config directories must not share
+    // state. Without STARFORGE_CONFIG_DIR support, both would fall back to the
+    // one real profile directory on Windows and share a single SQLite
+    // database across concurrent test processes.
+    let first = isolated_home();
+    let second = isolated_home();
+
+    for home in [&first, &second] {
+        let output = starforge_cmd(home.path())
+            .arg("info")
+            .output()
+            .expect("spawn starforge info");
+        assert_success(&output, "starforge info with isolated config dir");
+    }
+
+    let first_db = first.path().join(".starforge").join("starforge.db");
+    let second_db = second.path().join(".starforge").join("starforge.db");
+
+    assert!(
+        first_db.is_file(),
+        "expected an isolated database at {}",
+        first_db.display()
+    );
+    assert!(
+        second_db.is_file(),
+        "expected an isolated database at {}",
+        second_db.display()
+    );
+    assert_ne!(
+        first_db, second_db,
+        "each isolated home must get its own database path"
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1b. Startup Stack Budget
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Emulates the Windows main-thread stack budget on Unix.
+///
+/// Windows reserves 1 MiB for the process main thread; Linux and macOS reserve
+/// 8 MiB. Building this crate's clap command tree needs more than 1 MiB in a
+/// debug build, so every `starforge` invocation on Windows once died in
+/// `Cli::parse()` with STATUS_STACK_OVERFLOW (0xC00000FD) before running any
+/// command, while all three platforms looked fine locally.
+///
+/// `main` therefore runs the CLI on a thread with an explicit 8 MiB stack. This
+/// test lowers RLIMIT_STACK for the child to the Windows default so a
+/// regression fails here, on Linux CI, instead of only on the Windows job.
+///
+/// Linux only: macOS rejects `setrlimit(RLIMIT_STACK)` with EINVAL here, and it
+/// already gives the main thread 8 MiB, so it would add no coverage over the
+/// Linux job even if it were permitted.
+#[cfg(target_os = "linux")]
+#[test]
+fn test_cli_starts_under_windows_sized_main_stack() {
+    use std::os::unix::process::CommandExt;
+
+    const WINDOWS_DEFAULT_MAIN_STACK: u64 = 1024 * 1024;
+
+    for args in [vec!["--version"], vec!["--help"], vec!["info"]] {
+        let home = isolated_home();
+        let mut cmd = starforge_cmd(home.path());
+        cmd.args(&args);
+
+        // SAFETY: setrlimit is async-signal-safe and touches only this child
+        // between fork and exec.
+        unsafe {
+            cmd.pre_exec(|| {
+                let limit = libc::rlimit {
+                    rlim_cur: WINDOWS_DEFAULT_MAIN_STACK,
+                    rlim_max: WINDOWS_DEFAULT_MAIN_STACK,
+                };
+                if libc::setrlimit(libc::RLIMIT_STACK, &limit) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+
+        let output = cmd.output().expect("spawn with a 1 MiB main stack");
+        assert_success(
+            &output,
+            &format!(
+                "starforge {:?} with a {} MiB main stack (Windows default)",
+                args,
+                WINDOWS_DEFAULT_MAIN_STACK / (1024 * 1024)
+            ),
         );
     }
 }

@@ -1375,7 +1375,7 @@ mod determinism_tests {
         let template_dir = tmp.path().join("template");
         fs::create_dir_all(&template_dir).unwrap();
         fs::write(
-            template_dir.join("src/lib.rs"),
+            template_dir.join("lib.rs"),
             "name={{PROJECT_NAME}} snake={{PROJECT_NAME_SNAKE}} pascal={{PROJECT_NAME_PASCAL}}",
         )
         .unwrap();
