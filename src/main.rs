@@ -148,7 +148,7 @@ enum Commands {
     /// Local Soroban devnet (Docker quickstart)
     #[command(subcommand)]
     Node(commands::node::NodeCommands),
-    /// Generate shell completions for bash, zsh, and fish
+    /// Generate shell completions for bash, zsh, fish, and powershell
     #[command(subcommand)]
     Completions(commands::completions::CompletionShell),
 

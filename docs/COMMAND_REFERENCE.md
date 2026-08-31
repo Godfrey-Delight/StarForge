@@ -418,7 +418,7 @@ See [GOVERNANCE.md](GOVERNANCE.md) for the full workflow.
 | `test` | Soroban WASM test runner |
 | `lint <PATH>` | Static Soroban source lint |
 | `plugin install/list/run` | Dynamic plugin management |
-| `completions <SHELL>` | bash/zsh/fish completions |
+| `completions <SHELL>` | bash/zsh/fish/powershell completions |
 
 ### `monitor`
 

@@ -482,18 +482,35 @@ starforge info
 
 ### Shell completions
 
+`starforge completions <shell>` supports four shells: `bash`, `zsh`, `fish`, and `powershell`.
+
 ```bash
-# Bash â€” add to ~/.bashrc
+# Bash -- add to ~/.bashrc
 source <(starforge completions bash)
 
-# Zsh â€” add to ~/.zshrc
+# Zsh -- add to ~/.zshrc
 source <(starforge completions zsh)
 
-# Fish â€” save to fish completions directory
+# Fish -- save to fish completions directory
 starforge completions fish > ~/.config/fish/completions/starforge.fish
+
+# PowerShell -- add to your $PROFILE
+starforge completions powershell | Out-String | Invoke-Expression
 ```
 
-After adding the line to your shell config, restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`. Tab-completion for all subcommands and flags will then be active.
+```powershell
+# Or save it once and dot-source it from your profile:
+starforge completions powershell > starforge-completions.ps1
+# then add to $PROFILE: . /path/to/starforge-completions.ps1
+```
+
+After adding the line to your shell config, restart your shell (or `source` the config file / reload `$PROFILE`). Tab-completion for all subcommands and flags will then be active.
+
+**Compatibility**: completion scripts are generated from the CLI's own command definitions via [`clap_complete`](https://docs.rs/clap_complete), so they always match the flags and subcommands of the `starforge` binary you're running -- there's no separately-maintained completion file to fall out of sync. Supported shell/OS combinations: Bash and Zsh on Linux/macOS, Fish on Linux/macOS/Windows, and PowerShell (5.1+ / PowerShell Core) on Windows, Linux, and macOS.
+
+**Security note**: if you use `starforge plugin` to install third-party plugins, their command names and descriptions can appear in the generated completion script, which you typically `source` directly into your shell. `starforge` only interpolates plugin command names that look like plain identifiers (letters, digits, `-`, `_`, `:`); anything else (quotes, whitespace, shell metacharacters) is dropped from the script rather than escaped and embedded, so a malicious or corrupted plugin registry entry can't inject shell commands into your completion setup. Regenerate your completion script after installing or removing plugins to pick up the change.
+
+**Migration note**: PowerShell support was added in this release -- existing Bash/Zsh/Fish completion setups are unaffected. If you previously worked around the lack of PowerShell completions with a custom script, you can remove it and switch to `starforge completions powershell`.
 
 ---
 

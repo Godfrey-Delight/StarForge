@@ -1196,6 +1196,7 @@ impl Migration for MigrationV1 {
 
     fn up(&self, _conn: &Connection) -> Result<()> {
         // This is a no-op since the initial schema is already applied in SCHEMA
+        let _ = conn;
         Ok(())
     }
 
