@@ -104,13 +104,39 @@ pub fn validate_network(network: &str) -> Result<()> {
 pub fn validate_secret_key(secret: &str) -> Result<()> {
     if secret.contains(':') {
         let parts: Vec<&str> = secret.split(':').collect();
+
+        if parts[0] == "v1" {
+            if parts.len() != 7 {
+                anyhow::bail!(
+                    "Invalid v1 encrypted secret bundle format: expected 7 parts (v1:salt:nonce:ciphertext:mem:iterations:parallelism), got {}",
+                    parts.len()
+                );
+            }
+            for part in parts.iter().skip(1).take(3) {
+                BASE64
+                    .decode(part)
+                    .map_err(|_| anyhow::anyhow!("Invalid base64 in encrypted secret bundle"))?;
+            }
+            let mem: u32 = parts[4]
+                .parse()
+                .map_err(|_| anyhow::anyhow!("Invalid KDF memory cost: must be a valid u32"))?;
+            let iterations: u32 = parts[5]
+                .parse()
+                .map_err(|_| anyhow::anyhow!("Invalid KDF iteration count: must be a valid u32"))?;
+            let parallelism: u32 = parts[6]
+                .parse()
+                .map_err(|_| anyhow::anyhow!("Invalid KDF parallelism factor: must be a valid u32"))?;
+            crypto::validate_kdf_params(Some(mem), Some(iterations), Some(parallelism))?;
+            return Ok(());
+        }
+
         // Accept:
         // - 3-part (legacy: salt:nonce:ciphertext)
         // - 5-part (KDF without p_cost: salt:nonce:ciphertext:mem:iterations)
         // - 6-part (KDF with p_cost: salt:nonce:ciphertext:mem:iterations:parallelism)
         if parts.len() != 3 && parts.len() != 5 && parts.len() != 6 {
             anyhow::bail!(
-                "Invalid encrypted secret bundle format: expected 3, 5, or 6 parts, got {}",
+                "Invalid encrypted secret bundle format: expected 3, 5, 6, or 7 parts, got {}",
                 parts.len()
             );
         }
@@ -123,19 +149,29 @@ pub fn validate_secret_key(secret: &str) -> Result<()> {
         }
 
         // If 5 or 6-part bundle, validate KDF parameters are valid u32
+        let mut mem = None;
+        let mut iterations = None;
+        let mut parallelism = None;
         if parts.len() >= 5 {
-            parts[3]
-                .parse::<u32>()
-                .map_err(|_| anyhow::anyhow!("Invalid KDF memory cost: must be a valid u32"))?;
-            parts[4]
-                .parse::<u32>()
-                .map_err(|_| anyhow::anyhow!("Invalid KDF iteration count: must be a valid u32"))?;
+            mem = Some(
+                parts[3]
+                    .parse::<u32>()
+                    .map_err(|_| anyhow::anyhow!("Invalid KDF memory cost: must be a valid u32"))?,
+            );
+            iterations = Some(
+                parts[4]
+                    .parse::<u32>()
+                    .map_err(|_| anyhow::anyhow!("Invalid KDF iteration count: must be a valid u32"))?,
+            );
         }
         if parts.len() == 6 {
-            parts[5].parse::<u32>().map_err(|_| {
-                anyhow::anyhow!("Invalid KDF parallelism factor: must be a valid u32")
-            })?;
+            parallelism = Some(
+                parts[5].parse::<u32>().map_err(|_| {
+                    anyhow::anyhow!("Invalid KDF parallelism factor: must be a valid u32")
+                })?,
+            );
         }
+        crypto::validate_kdf_params(mem, iterations, parallelism)?;
 
         return Ok(());
     }
@@ -658,8 +694,53 @@ pub struct WalletEntry {
     pub network: String,
     pub created_at: String,
     pub funded: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kdf_options: Option<crypto::KdfOptions>,
     #[serde(default)]
     pub rotation_history: Vec<WalletRotationRecord>,
+}
+
+impl WalletEntry {
+    /// Get explicit or extracted KDF metadata for this wallet entry if encrypted.
+    pub fn kdf_metadata(&self) -> Option<crypto::KdfMetadata> {
+        let secret = self.secret_key.as_ref()?;
+        crypto::extract_kdf_metadata(secret).ok()
+    }
+}
+
+/// Upgrade or tune KDF parameters for a stored wallet.
+pub fn upgrade_wallet_kdf(
+    wallet_name: &str,
+    password: &str,
+    new_kdf: Option<crypto::KdfOptions>,
+) -> Result<()> {
+    let mut cfg = load()?;
+    let wallet = cfg
+        .wallets
+        .iter_mut()
+        .find(|w| w.name == wallet_name)
+        .ok_or_else(|| anyhow::anyhow!("Wallet '{}' not found", wallet_name))?;
+
+    let secret_bundle = wallet
+        .secret_key
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Wallet '{}' has no secret key saved", wallet_name))?;
+
+    if !secret_bundle.contains(':') {
+        anyhow::bail!(
+            "Wallet '{}' secret key is not encrypted. KDF parameters can only be tuned for encrypted wallets.",
+            wallet_name
+        );
+    }
+
+    let upgraded_bundle =
+        crypto::upgrade_wallet_kdf_secret(password, secret_bundle, new_kdf.as_ref())?;
+
+    wallet.secret_key = Some(upgraded_bundle);
+    wallet.kdf_options = new_kdf;
+
+    save(&cfg)?;
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -711,7 +792,7 @@ impl Default for Config {
             wallets: vec![],
             networks,
             plugin_trust: PluginTrustConfig::default(),
-            telemetry_enabled: Some(true),
+            telemetry_enabled: Some(false),
             wallet_encryption: None,
             install_id: None,
             feature_flags: FeatureFlagsConfig::default(),
@@ -1158,16 +1239,27 @@ pub fn set_test_config_dir(path: PathBuf) {
 pub const CONFIG_DIR_ENV: &str = "STARFORGE_CONFIG_DIR";
 
 pub fn config_dir() -> PathBuf {
-    if let Some(path) = TEST_CONFIG_DIR_OVERRIDE.with(|p| p.borrow().clone()) {
-        return path;
-    }
-    if let Some(dir) = std::env::var_os(CONFIG_DIR_ENV) {
-        if !dir.is_empty() {
-            return PathBuf::from(dir);
+    let home = resolve_home_dir();
+    home.join(".starforge")
+}
+
+/// Resolve the user's home directory, honouring the `USERPROFILE` (Windows)
+/// and `HOME` (Unix) environment variables ahead of `dirs::home_dir()`.
+///
+/// Honouring the env vars lets callers (especially tests) redirect the config
+/// directory to a temporary location for isolation. In normal use the env var
+/// matches the real home, so the resolved path is identical to
+/// `dirs::home_dir()`.
+fn resolve_home_dir() -> PathBuf {
+    if let Some(home) = std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .filter(|v| !v.is_empty())
+    {
+        if let Some(home) = home.to_str().filter(|s| !s.trim().is_empty()) {
+            return PathBuf::from(home);
         }
     }
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".starforge")
+    dirs::home_dir().expect("Could not find home directory")
 }
 
 pub fn get_data_dir() -> Result<PathBuf> {

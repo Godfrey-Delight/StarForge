@@ -333,7 +333,7 @@ fn list(json: bool) -> Result<()> {
             vec![
                 entry.name.clone(),
                 entry.plugin_version.clone(),
-                entry.trust.label().to_string(),
+                entry.trust.clone(),
                 entry.description.clone(),
             ]
         })

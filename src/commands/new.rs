@@ -1409,10 +1409,10 @@ mod determinism_tests {
         fs::create_dir_all(&out).unwrap();
         copy_template_contents(&template_dir, &out, "hello-world").unwrap();
 
-        let content = fs::read_to_string(out.join("lib.rs")).unwrap();
+        let content = fs::read_to_string(out.join("src/lib.rs")).unwrap();
         assert_eq!(
             content,
-            "name=hello-world snake=hello_world pascal=HelloWorld"
+            "name=hello-world snake=hello_world Pascal=HelloWorld"
         );
     }
 

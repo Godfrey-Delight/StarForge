@@ -220,16 +220,15 @@ pub struct InstalledPlugin {
     /// Plugin version from manifest.
     #[serde(default)]
     pub plugin_version: String,
+    /// Plugin summary from manifest.
+    #[serde(default)]
+    pub description: String,
     /// RFC3339 timestamp of when the plugin was installed.
     #[serde(default)]
     pub installed_at: Option<String>,
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
-    /// Description from the plugin manifest. Empty when the plugin does not
-    /// declare one, in which case the first command's description is used.
-    #[serde(default)]
-    pub description: String,
 }
 
 fn registry_path() -> Result<PathBuf> {
@@ -325,9 +324,9 @@ pub fn install_plugin(
         trust,
         starforge_version: starforge_version.to_string(),
         plugin_version: plugin_version.to_string(),
+        description: description.to_string(),
         installed_at: Some(now),
         commands,
-        description: description.to_string(),
     });
     reg.plugins.sort_by(|a, b| a.name.cmp(&b.name));
     save_registry(&reg)?;

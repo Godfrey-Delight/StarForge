@@ -17,8 +17,7 @@ fn insert_history(map: &mut HashMap<String, TestHistory>, entry: (String, TestHi
 }
 
 fn make_optimizer() -> TestOptimizer {
-    let dir = tempfile::tempdir().unwrap().keep();
-    TestOptimizer::with_config_dir(dir).unwrap()
+    TestOptimizer::with_empty_config_dir(PathBuf::from("/tmp/test_opt_integration"))
 }
 
 fn make_history(

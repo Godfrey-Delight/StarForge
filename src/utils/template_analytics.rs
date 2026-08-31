@@ -927,7 +927,7 @@ mod tests {
             categories: vec![],
             featured: false,
             security_review: None,
-            changelog: None,
+            changelog: Some(vec![]),
         }
     }
 

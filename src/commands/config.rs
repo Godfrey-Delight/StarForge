@@ -299,7 +299,7 @@ fn show() -> Result<()> {
     p::kv("Active network", &cfg.network);
     p::kv(
         "Telemetry",
-        if cfg.telemetry_enabled.unwrap_or(true) {
+        if cfg.telemetry_enabled.unwrap_or(false) {
             "enabled"
         } else {
             "disabled"
@@ -307,7 +307,7 @@ fn show() -> Result<()> {
     );
     p::kv(
         "telemetry.enabled",
-        &cfg.telemetry_enabled.unwrap_or(true).to_string(),
+        &cfg.telemetry_enabled.unwrap_or(false).to_string(),
     );
 
     println!();
