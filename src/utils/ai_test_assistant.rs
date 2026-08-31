@@ -694,9 +694,9 @@ pub fn generate_test_priorities(analysis: &ContractAnalysis) -> Vec<TestPriority
     for func in &analysis.functions {
         let priority = if func.is_entry_point {
             TestPriority::Critical
-        } else if func.complexity_score > 5 || (func.is_mutating && func.complexity_score > 3) {
-            TestPriority::High
         } else if func.is_mutating {
+            TestPriority::High
+        } else if func.complexity_score > 5 {
             TestPriority::Medium
         } else {
             TestPriority::Low
