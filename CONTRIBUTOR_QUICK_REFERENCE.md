@@ -27,6 +27,7 @@ cargo test
 | Build (debug) | `cargo build` |
 | Build (release) | `cargo build --release` |
 | Run tests | `cargo test` |
+| Run doctests | `cargo test --doc` |
 | Run with output | `cargo test -- --nocapture` |
 | Format code | `cargo fmt --all` |
 | Lint code | `cargo clippy -- -D warnings` |
@@ -66,19 +67,22 @@ cargo fmt --all
 # 3. Run all tests (required)
 cargo test --locked
 
-# 4. Check for linting issues (required)
+# 4. Run doctests (required — verifies documentation examples)
+cargo test --doc --locked
+
+# 5. Check for linting issues (required)
 cargo clippy --locked -- -D warnings
 
-# 5. Check dependency security (required in CI)
+# 6. Check dependency security (required in CI)
 cargo deny check
 
-# 6. Verify smoke tests pass
+# 7. Verify smoke tests pass
 cargo test --test cli_smoke --locked
 
-# 7. Verify the app runs
+# 8. Verify the app runs
 cargo run -- --version
 
-# 8. Commit and push
+# 9. Commit and push
 git add .
 git commit -m "feat: your change"
 git push origin feat/issue-XXX-description
@@ -265,8 +269,9 @@ The GitHub Actions pipeline runs on every push and PR:
 
 1. **Rustfmt** — Code formatting check
 2. **Cargo Deny** — Dependency security audit
-3. **Build, Test & Clippy** — Compilation, tests, and linting
-4. **CLI Smoke Tests** — End-to-end functionality tests
+3. **Documentation Tests** — Doc examples compile and pass
+4. **Build, Test & Clippy** — Compilation, tests, and linting
+5. **CLI Smoke Tests** — End-to-end functionality tests
 
 All must pass for a PR to be mergeable.
 
