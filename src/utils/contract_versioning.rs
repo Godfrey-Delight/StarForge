@@ -820,6 +820,14 @@ mod tests {
         fs::write(dir.join("contract-dependencies.toml"), contents).unwrap();
     }
 
+    /// Render a path for embedding in a TOML basic string.
+    ///
+    /// Windows paths contain backslashes, which TOML reads as escape
+    /// sequences; forward slashes are accepted as separators on every platform.
+    fn toml_path(path: &Path) -> String {
+        path.display().to_string().replace('\\', "/")
+    }
+
     #[test]
     fn test_detect_conflicts_disjoint_requirements() {
         let root = tempdir().unwrap();

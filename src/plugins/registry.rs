@@ -232,11 +232,11 @@ pub struct InstalledPlugin {
     pub commands: Vec<RegisteredCommand>,
 }
 
-/// Resolve the description to display for a plugin: prefer the registry's
-/// own `description` field, falling back to the first command's description.
-pub fn resolve_plugin_description(plugin: &InstalledPlugin) -> String {
+/// The description to show for a plugin: its own, or the first command's when
+/// the plugin does not declare one.
+pub fn resolve_plugin_description(plugin: &InstalledPlugin) -> &str {
     if !plugin.description.is_empty() {
-        return plugin.description.clone();
+        return &plugin.description;
     }
     plugin
         .commands
@@ -367,9 +367,9 @@ pub fn install_plugin(
         trust,
         starforge_version: starforge_version.to_string(),
         plugin_version: plugin_version.to_string(),
+        description: description.to_string(),
         installed_at: Some(now),
         commands,
-        description: description.to_string(),
     });
     reg.plugins.sort_by(|a, b| a.name.cmp(&b.name));
     save_registry(&reg)?;

@@ -311,6 +311,95 @@ fn validate_new_passphrase(pwd: &str, strict: bool, user_inputs: &[&str]) -> Res
 
 // ── Argon2 KDF tuning ─────────────────────────────────────────────────────────
 
+/// KDF schema version (1 = Argon2id + AES-256-GCM).
+pub const KDF_VERSION_1: u32 = 1;
+
+/// Minimum allowed Argon2 memory cost in KiB (8 MiB).
+pub const MIN_KDF_MEM: u32 = 8192;
+/// Maximum allowed Argon2 memory cost in KiB (2 GiB).
+pub const MAX_KDF_MEM: u32 = 2_097_152;
+/// Minimum allowed Argon2 iteration count (`t_cost`).
+pub const MIN_KDF_ITERATIONS: u32 = 1;
+/// Maximum allowed Argon2 iteration count (`t_cost`).
+pub const MAX_KDF_ITERATIONS: u32 = 100;
+/// Minimum allowed Argon2 parallelism factor (`p_cost`).
+pub const MIN_KDF_PARALLELISM: u32 = 1;
+/// Maximum allowed Argon2 parallelism factor (`p_cost`).
+pub const MAX_KDF_PARALLELISM: u32 = 64;
+
+/// Structured metadata describing the KDF parameters used for a wallet secret key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct KdfMetadata {
+    /// KDF version (1 = Argon2id + AES-256-GCM).
+    pub version: u32,
+    /// Memory cost in KiB (`m_cost`).
+    pub mem: u32,
+    /// Iteration count (`t_cost`).
+    pub iterations: u32,
+    /// Parallelism factor (`p_cost`).
+    pub parallelism: u32,
+}
+
+impl KdfMetadata {
+    /// Default metadata matching Argon2 library defaults (v1, 32768 KiB, 3 iterations, 1 parallelism).
+    pub fn default_v1() -> Self {
+        let defaults = Params::default();
+        Self {
+            version: KDF_VERSION_1,
+            mem: defaults.m_cost(),
+            iterations: defaults.t_cost(),
+            parallelism: defaults.p_cost(),
+        }
+    }
+
+    /// Validate metadata against safety and system boundaries.
+    pub fn validate(&self) -> Result<()> {
+        if self.version != KDF_VERSION_1 {
+            anyhow::bail!("Unsupported KDF version {}", self.version);
+        }
+        validate_kdf_params(Some(self.mem), Some(self.iterations), Some(self.parallelism))
+    }
+}
+
+/// Validate KDF parameters against minimum and maximum bounds.
+pub fn validate_kdf_params(
+    mem: Option<u32>,
+    iterations: Option<u32>,
+    parallelism: Option<u32>,
+) -> Result<()> {
+    if let Some(m) = mem {
+        if m < MIN_KDF_MEM || m > MAX_KDF_MEM {
+            anyhow::bail!(
+                "Memory cost must be between {} KiB and {} KiB (got {} KiB)",
+                MIN_KDF_MEM,
+                MAX_KDF_MEM,
+                m
+            );
+        }
+    }
+    if let Some(i) = iterations {
+        if i < MIN_KDF_ITERATIONS || i > MAX_KDF_ITERATIONS {
+            anyhow::bail!(
+                "Iteration count must be between {} and {} (got {})",
+                MIN_KDF_ITERATIONS,
+                MAX_KDF_ITERATIONS,
+                i
+            );
+        }
+    }
+    if let Some(p) = parallelism {
+        if p < MIN_KDF_PARALLELISM || p > MAX_KDF_PARALLELISM {
+            anyhow::bail!(
+                "Parallelism factor must be between {} and {} (got {})",
+                MIN_KDF_PARALLELISM,
+                MAX_KDF_PARALLELISM,
+                p
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Optional Argon2 parameters for wallet encryption (`m_cost` / `t_cost` / `p_cost`).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct KdfOptions {
@@ -327,9 +416,17 @@ impl KdfOptions {
     pub fn is_default(&self) -> bool {
         self.mem.is_none() && self.iterations.is_none() && self.parallelism.is_none()
     }
+
+    /// Validate option parameter values if set.
+    pub fn validate(&self) -> Result<()> {
+        validate_kdf_params(self.mem, self.iterations, self.parallelism)
+    }
 }
 
 fn resolve_params(options: Option<&KdfOptions>) -> Result<Params> {
+    if let Some(opts) = options {
+        opts.validate()?;
+    }
     let defaults = Params::default();
     let m_cost = options
         .and_then(|o| o.mem)
@@ -350,6 +447,38 @@ fn argon2_from_params(params: &Params) -> Argon2<'_> {
 
 fn parse_encrypted_bundle(bundle: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Option<KdfOptions>)> {
     let parts: Vec<&str> = bundle.split(':').collect();
+    if parts.is_empty() {
+        anyhow::bail!("Invalid encrypted bundle: empty string");
+    }
+
+    if parts[0] == "v1" {
+        if parts.len() != 7 {
+            anyhow::bail!(
+                "Invalid v1 encrypted bundle format: expected 7 parts (v1:salt:nonce:ciphertext:mem:iterations:parallelism), got {}",
+                parts.len()
+            );
+        }
+        let salt = BASE64.decode(parts[1])?;
+        let nonce_bytes = BASE64.decode(parts[2])?;
+        let ciphertext = BASE64.decode(parts[3])?;
+        let mem = parts[4]
+            .parse::<u32>()
+            .map_err(|_| anyhow!("Invalid encrypted bundle: bad mem cost"))?;
+        let iterations = parts[5]
+            .parse::<u32>()
+            .map_err(|_| anyhow!("Invalid encrypted bundle: bad iteration count"))?;
+        let parallelism = parts[6]
+            .parse::<u32>()
+            .map_err(|_| anyhow!("Invalid encrypted bundle: bad parallelism factor"))?;
+        let opts = KdfOptions {
+            mem: Some(mem),
+            iterations: Some(iterations),
+            parallelism: Some(parallelism),
+        };
+        opts.validate()?;
+        return Ok((salt, nonce_bytes, ciphertext, Some(opts)));
+    }
+
     match parts.len() {
         3 => {
             let salt = BASE64.decode(parts[0])?;
@@ -367,16 +496,13 @@ fn parse_encrypted_bundle(bundle: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Op
             let iterations = parts[4]
                 .parse::<u32>()
                 .map_err(|_| anyhow!("Invalid encrypted bundle: bad iteration count"))?;
-            Ok((
-                salt,
-                nonce_bytes,
-                ciphertext,
-                Some(KdfOptions {
-                    mem: Some(mem),
-                    iterations: Some(iterations),
-                    parallelism: None,
-                }),
-            ))
+            let opts = KdfOptions {
+                mem: Some(mem),
+                iterations: Some(iterations),
+                parallelism: None,
+            };
+            opts.validate()?;
+            Ok((salt, nonce_bytes, ciphertext, Some(opts)))
         }
         6 => {
             let salt = BASE64.decode(parts[0])?;
@@ -391,19 +517,31 @@ fn parse_encrypted_bundle(bundle: &str) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Op
             let parallelism = parts[5]
                 .parse::<u32>()
                 .map_err(|_| anyhow!("Invalid encrypted bundle: bad parallelism factor"))?;
-            Ok((
-                salt,
-                nonce_bytes,
-                ciphertext,
-                Some(KdfOptions {
-                    mem: Some(mem),
-                    iterations: Some(iterations),
-                    parallelism: Some(parallelism),
-                }),
-            ))
+            let opts = KdfOptions {
+                mem: Some(mem),
+                iterations: Some(iterations),
+                parallelism: Some(parallelism),
+            };
+            opts.validate()?;
+            Ok((salt, nonce_bytes, ciphertext, Some(opts)))
         }
         _ => anyhow::bail!("Invalid encrypted bundle format"),
     }
+}
+
+/// Extract KDF metadata from an encrypted secret bundle.
+pub fn extract_kdf_metadata(bundle: &str) -> Result<KdfMetadata> {
+    let (_, _, _, kdf) = parse_encrypted_bundle(bundle)?;
+    let defaults = Params::default();
+    let opts = kdf.unwrap_or_default();
+    let meta = KdfMetadata {
+        version: KDF_VERSION_1,
+        mem: opts.mem.unwrap_or_else(|| defaults.m_cost()),
+        iterations: opts.iterations.unwrap_or_else(|| defaults.t_cost()),
+        parallelism: opts.parallelism.unwrap_or_else(|| defaults.p_cost()),
+    };
+    meta.validate()?;
+    Ok(meta)
 }
 
 // ── Password prompt (for decryption / non-creation flows) ────────────────────
@@ -467,7 +605,7 @@ pub fn encrypt_secret(password: &str, secret: &str, kdf: Option<&KdfOptions>) ->
         ))
     } else {
         Ok(format!(
-            "{}:{}:{}:{}:{}:{}",
+            "v1:{}:{}:{}:{}:{}:{}",
             encoded_salt,
             encoded_nonce,
             encoded_cipher,
@@ -476,6 +614,35 @@ pub fn encrypt_secret(password: &str, secret: &str, kdf: Option<&KdfOptions>) ->
             params.p_cost()
         ))
     }
+}
+
+/// Safely upgrade/re-encrypt an encrypted secret bundle with new KDF parameters.
+///
+/// Decrypts the secret with `password`, validates `new_kdf`, re-encrypts the secret,
+/// and verifies that the new bundle decrypts successfully before returning it.
+/// If `password` is incorrect, `current_bundle` is invalid, or `new_kdf` is out of bounds,
+/// the function returns an error without altering the input.
+pub fn upgrade_wallet_kdf_secret(
+    password: &str,
+    current_bundle: &str,
+    new_kdf: Option<&KdfOptions>,
+) -> Result<String> {
+    if let Some(opts) = new_kdf {
+        opts.validate()?;
+    }
+    // 1. Decrypt current secret using password (fails fast on wrong password or corrupted bundle)
+    let secret = decrypt_secret(password, current_bundle)?;
+
+    // 2. Re-encrypt with new KDF parameters
+    let new_bundle = encrypt_secret(password, &secret, new_kdf)?;
+
+    // 3. Verify decryption round-trip with new parameters before returning
+    let verified_secret = decrypt_secret(password, &new_bundle)?;
+    if verified_secret != secret {
+        anyhow::bail!("Upgrade verification failed: decrypted secret mismatch");
+    }
+
+    Ok(new_bundle)
 }
 
 pub fn decrypt_secret(password: &str, bundle: &str) -> Result<String> {
