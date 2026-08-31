@@ -77,6 +77,7 @@ pub mod deployment_checkpoint;
 pub mod deployment_monitor;
 pub mod deployment_monitoring_service;
 pub mod deployment_optimizer;
+pub mod deployment_timeline;
 pub mod deployment_verify;
 pub mod doc_api_ref;
 pub mod doc_extractor;
