@@ -199,6 +199,10 @@ enum Commands {
     #[command(subcommand)]
     Plugin(commands::plugin::PluginCommands),
 
+    /// Check PR readiness (CI status and merge conflicts)
+    #[command(subcommand)]
+    Pr(commands::pr::PrCommands),
+
     /// AI mutation testing for Soroban contracts
     #[command(subcommand)]
     Mutate(commands::mutate::MutateCommands),
@@ -467,6 +471,7 @@ async fn run() {
         Commands::Gas(_) => "gas",
         Commands::Cost(_) => "cost",
         Commands::Plugin(_) => "plugin",
+        Commands::Pr(_) => "pr",
         Commands::Mutate(_) => "mutate",
         Commands::Privacy(_) => "privacy",
         Commands::Project(_) => "project",
@@ -575,6 +580,7 @@ async fn run() {
         Commands::Test(args) => commands::test::handle(args).await,
         Commands::Gas(args) => commands::gas::handle(args).await,
         Commands::Plugin(args) => commands::plugin::handle(args).await,
+        Commands::Pr(cmd) => commands::pr::handle(cmd).await,
         Commands::Mutate(cmd) => commands::mutate::handle(cmd).await,
         Commands::Privacy(cmd) => commands::privacy::handle(cmd).await,
         Commands::Template(args) => commands::template::handle(args).await,
