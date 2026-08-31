@@ -23,6 +23,7 @@ pub mod ai_gas_estimation;
 pub mod ai_ide_integration;
 pub mod ai_model_router;
 pub mod ai_navigation;
+pub mod ai_offline;
 pub mod ai_performance_profiler;
 pub mod ai_project_planner;
 pub mod ai_property_testing;
