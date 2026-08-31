@@ -123,9 +123,9 @@ enum Commands {
     /// Deployment history, rollback, verification, and dashboard
     #[command(subcommand)]
     Deployments(commands::deployments::DeploymentsCommands),
-    /// Organization deploy policy validation (networks, reviewers, checklists)
-    #[command(subcommand, name = "deploy-policy")]
-    DeployPolicy(commands::deploy_policy::DeployPolicyCommands),
+    /// Manage deployment environments (dev/staging/production): configuration, promotion, isolation, and a dashboard
+    #[command(subcommand)]
+    Environment(commands::environment::EnvironmentCommands),
     /// Show starforge config and environment info
     Info,
     /// Manage AI prompt templates and versioning
@@ -461,7 +461,7 @@ async fn run() {
         Commands::Inspect(_) => "inspect",
         Commands::Deploy(_) => "deploy",
         Commands::Deployments(_) => "deployments",
-        Commands::DeployPolicy(_) => "deploy-policy",
+        Commands::Environment(_) => "environment",
         Commands::Info => "info",
         Commands::Prompts(_) => "prompts",
         Commands::Explain(_) => "explain",
@@ -557,7 +557,7 @@ async fn run() {
         Commands::Debug(cmd) => commands::debug::handle(cmd).await,
         Commands::Deploy(args) => commands::deploy::handle(args).await,
         Commands::Deployments(cmd) => commands::deployments::handle(cmd).await,
-        Commands::DeployPolicy(cmd) => commands::deploy_policy::handle(cmd),
+        Commands::Environment(cmd) => commands::environment::handle(cmd),
         Commands::Info => commands::info::handle().await,
         Commands::Prompts(cmd) => commands::prompts::handle(&cmd).await,
         Commands::Explain(ref cmd) => commands::explain::handle(cmd).await,
