@@ -838,6 +838,30 @@ Update these files when adding features:
 - Add diagrams for complex flows
 - Update [docs/COMMAND_REFERENCE.md](docs/COMMAND_REFERENCE.md) when adding or renaming CLI subcommands
 
+### Command cheat sheet (auto-generated)
+
+[docs/COMMAND_CHEATSHEET.md](docs/COMMAND_CHEATSHEET.md) is **auto-generated from clap
+command metadata** by the crate's `build.rs`. It is committed so
+it can be linked from the README and the docs site, but you must **never edit it by hand**.
+
+**Regenerating the cheat sheet**
+
+When you add, rename, or remove a top-level subcommand, or change its one-line
+description, update the clap metadata (the `Commands` enum and `MAJOR_SUBCOMMANDS`
+table in `build.rs`) and then regenerate:
+
+```bash
+cargo build          # build.rs rewrites docs/COMMAND_CHEATSHEET.md
+git add docs/COMMAND_CHEATSHEET.md build.rs
+git commit
+```
+
+> If the committed cheat sheet is out of date, CI fails the
+> `Docs Cheat Sheet (anti-drift)` check with a `git diff --exit-code` error.
+> Note: hidden commands (`#[command(hide)]`) and internal commands listed in
+> `INTERNAL_COMMANDS` (`external`, `autocomplete`, `man`, `feature-flags`, `help`)
+> are excluded from the cheat sheet consistently.
+
 ---
 
 ## Common Tasks
