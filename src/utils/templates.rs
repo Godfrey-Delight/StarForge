@@ -675,30 +675,31 @@ const DEFAULT_REGISTRY: &str = include_str!("../../templates/registry.json");
 const DEFAULT_REGISTRY_URL: &str =
     "https://starforge-protocol.github.io/starforge/templates/registry.json";
 
-/// Directory holding the local registry cache. Honors
-/// `STARFORGE_TEMPLATE_REGISTRY_DIR` (primarily used by tests to avoid
-/// touching a real home directory) before falling back to
-/// `~/.starforge/templates`.
-fn registry_dir() -> Result<PathBuf> {
-    let dir = match std::env::var_os("STARFORGE_TEMPLATE_REGISTRY_DIR") {
-        Some(dir) => PathBuf::from(dir),
-        None => crate::utils::config::config_dir().join("templates"),
-    };
-    if !dir.exists() {
-        fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
-    }
-    Ok(dir)
-}
-
 fn registry_path() -> Result<PathBuf> {
-    Ok(registry_dir()?.join("registry.json"))
+    let dir = crate::utils::config::config_dir().join("templates");
+    ensure_private_directory(&dir)?;
+    Ok(dir.join("registry.json"))
 }
 
-/// Path to the sidecar file that stores the `ETag` of the last successfully
-/// fetched remote registry, used to make conditional (`If-None-Match`)
-/// requests on subsequent refreshes.
-fn registry_etag_path() -> Result<PathBuf> {
-    Ok(registry_path()?.with_extension("etag"))
+/// Create a cache directory with owner-only permissions and reject symlinked
+/// directories. Cache contents influence generated projects and must not be
+/// redirected into an attacker-controlled location.
+fn ensure_private_directory(path: &Path) -> Result<()> {
+    if path.exists() {
+        let metadata = fs::symlink_metadata(path)?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            anyhow::bail!("Refusing unsafe cache directory: {}", path.display());
+        }
+    } else {
+        fs::create_dir_all(path).with_context(|| format!("Failed to create {}", path.display()))?;
+    }
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(())
 }
 
 /// Verify that the SHA-256 checksum of `bytes` matches `expected_hex`.
@@ -820,17 +821,13 @@ fn template_storage_dir() -> Result<PathBuf> {
     let dir = crate::utils::config::config_dir()
         .join("templates")
         .join("storage");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
-    }
+    ensure_private_directory(&dir)?;
     Ok(dir)
 }
 
 fn template_cache_dir() -> Result<PathBuf> {
     let dir = crate::utils::config::config_dir().join("template-cache");
-    if !dir.exists() {
-        fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
-    }
+    ensure_private_directory(&dir)?;
     Ok(dir)
 }
 
@@ -842,6 +839,12 @@ fn template_cache_dir() -> Result<PathBuf> {
 pub fn fetch_template_cached(entry: &TemplateEntry, force_refresh: bool) -> Result<PathBuf> {
     let cache_root = template_cache_dir()?;
     let dest = cache_root.join(&entry.name);
+
+    if let Ok(metadata) = fs::symlink_metadata(&dest) {
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            anyhow::bail!("Refusing unsafe cached template path: {}", dest.display());
+        }
+    }
 
     if dest.exists() {
         let mut should_refresh = force_refresh;
@@ -1724,6 +1727,10 @@ fn fetch_local_template(source: &Path, dest: &Path) -> Result<()> {
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+    let source_metadata = fs::symlink_metadata(src)?;
+    if source_metadata.file_type().is_symlink() {
+        anyhow::bail!("Refusing symlink in downloaded template: {}", src.display());
+    }
     if !dst.exists() {
         fs::create_dir_all(dst)?;
     }
@@ -1740,7 +1747,14 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
 
         let dest_path = dst.join(&file_name);
 
-        if path.is_dir() {
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.file_type().is_symlink() {
+            anyhow::bail!(
+                "Refusing symlink in downloaded template: {}",
+                path.display()
+            );
+        }
+        if metadata.is_dir() {
             copy_dir_recursive(&path, &dest_path)?;
         } else {
             fs::copy(&path, &dest_path)?;
