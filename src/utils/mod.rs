@@ -146,6 +146,7 @@ pub mod template_customization_ai;
 pub mod template_integration;
 pub mod template_performance;
 pub mod template_recommender;
+pub mod template_schema;
 pub mod template_security_scanner;
 pub mod template_vcs;
 pub mod template_version_ai;
