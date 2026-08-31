@@ -18,6 +18,9 @@ Think of it as the "Hardhat or Foundry" experience for the Stellar ecosystem, bu
 
 This project is actively maintained and participates in the [Stellar Wave Program](https://www.drips.network/wave/stellar) on Drips â€” a monthly open-source contribution sprint where contributors earn rewards for merged pull requests.
 
+Configuration schema ownership and migration guidance are documented in
+[Configuration schema migrations](./docs/CONFIGURATION_MIGRATIONS.md).
+
 ---
 
 ## Features
