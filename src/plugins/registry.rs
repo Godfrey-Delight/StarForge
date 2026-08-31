@@ -220,15 +220,16 @@ pub struct InstalledPlugin {
     /// Plugin version from manifest.
     #[serde(default)]
     pub plugin_version: String,
-    /// Optional description from manifest.
-    #[serde(default)]
-    pub description: String,
     /// RFC3339 timestamp of when the plugin was installed.
     #[serde(default)]
     pub installed_at: Option<String>,
     /// Commands this plugin registers.
     #[serde(default)]
     pub commands: Vec<RegisteredCommand>,
+    /// Description from the plugin manifest. Empty when the plugin does not
+    /// declare one, in which case the first command's description is used.
+    #[serde(default)]
+    pub description: String,
 }
 
 fn registry_path() -> Result<PathBuf> {

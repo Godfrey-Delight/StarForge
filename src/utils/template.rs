@@ -1014,7 +1014,6 @@ async fn template_audit(name: Option<String>) -> Result<()> {
             Some(sr) => (
                 sr.status.as_str(),
                 sr.findings
-                    .clone()
                     .map(|f| f.to_string())
                     .unwrap_or_else(|| "—".to_string()),
                 sr.score

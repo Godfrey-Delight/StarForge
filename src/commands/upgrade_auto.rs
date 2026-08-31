@@ -1917,7 +1917,6 @@ fn short_id(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use stellar_xdr::curr::{
         Limits, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeUdt,
         ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSymbol, StringM, VecM, WriteXdr,

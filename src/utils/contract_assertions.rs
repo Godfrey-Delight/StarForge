@@ -541,7 +541,7 @@ impl<'a> ContractAssertions<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::contract_mocks::{counter_env, token_env, MockAddress, MockEvent};
+    use crate::utils::contract_mocks::{counter_env, token_env, MockAddress};
 
     #[test]
     fn storage_eq_passes() {

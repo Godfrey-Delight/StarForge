@@ -496,7 +496,6 @@ Return JSON with patterns, anti_patterns, missing_patterns, and refactoring_sugg
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn test_extract_function_name() {

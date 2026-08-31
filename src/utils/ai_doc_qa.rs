@@ -1470,7 +1470,6 @@ mod tests {
 
     #[test]
     fn test_retrieval_finds_relevant_chunk() {
-        let index = DocIndex::new();
         let chunks = builtin_knowledge_base();
         let index = DocIndex {
             chunks,
