@@ -236,6 +236,7 @@ pub fn is_pid_active(pid: u32) -> bool {
 }
 
 /// Concurrency file lock guard.
+#[derive(Debug)]
 pub struct DeploymentLock {
     lock_path: PathBuf,
 }
@@ -452,7 +453,7 @@ mod tests {
 
     fn set_temp_config_dir() -> TempDir {
         let dir = TempDir::new().unwrap();
-        std::env::set_var("HOME", dir.path());
+        crate::utils::config::set_test_config_dir(dir.path().to_path_buf());
         dir
     }
 
@@ -483,10 +484,11 @@ mod tests {
 
         let lock2 = DeploymentLock::acquire(session);
         assert!(lock2.is_err());
-        assert!(lock2
-            .unwrap_err()
-            .to_string()
-            .contains("already in progress"));
+        let err_msg = match lock2 {
+            Err(e) => e.to_string(),
+            Ok(_) => panic!("expected lock acquisition to fail for a locked session"),
+        };
+        assert!(err_msg.contains("already in progress"));
 
         drop(lock1);
         let lock3 = DeploymentLock::acquire(session);

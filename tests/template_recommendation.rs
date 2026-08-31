@@ -124,13 +124,17 @@ fn skill_level_default_is_intermediate() {
 fn explanation_contains_all_fields() {
     let rec = make_rec(
         "my-token",
-        85.5,
+        85.0,
         vec!["Verified template", "Has documentation"],
         false,
     );
     let explanation = format_explanation(&rec);
 
-    assert!(explanation.contains("85"), "Should include rounded score");
+    assert!(
+        explanation.contains("85"),
+        "Should include rounded score, got {}",
+        explanation
+    );
     assert!(explanation.contains("70"), "Should include relevance");
     assert!(explanation.contains("60"), "Should include popularity");
     assert!(explanation.contains("Good fit"), "Should include skill fit");
@@ -240,7 +244,7 @@ fn verified_documented_audited_entry_scores_high() {
         status: "audited".to_string(),
         audited_at: Some("2025-06-01T00:00:00Z".to_string()),
         auditor: Some("StarForge Security Team".to_string()),
-        findings: Some("0".to_string()),
+        findings: Some(0),
         score: Some(98.0),
     });
     let q = entry.quality_score();
