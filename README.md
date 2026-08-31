@@ -195,6 +195,38 @@ Run it in CI after configuring the `ci` wallet and environment variables. Steps 
     VALUE: production
 ```
 
+### Stable JSON output contract
+
+Use the global `--json` flag or set `STARFORGE_OUTPUT_JSON=1` to request machine-readable output from supported commands.
+
+Every success response uses the same envelope shape:
+
+```json
+{
+  "version": 1,
+  "ok": true,
+  "data": {
+    "name": "wallet",
+    "count": 2
+  }
+}
+```
+
+Failures use a versioned error envelope:
+
+```json
+{
+  "version": 1,
+  "ok": false,
+  "error": {
+    "code": "command_error",
+    "message": "unsupported network"
+  }
+}
+```
+
+This is a global contract so automation can parse output consistently across commands without depending on per-command ad hoc schemas.
+
 ### Wallet commands
 
 ```bash

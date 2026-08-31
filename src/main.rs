@@ -658,6 +658,11 @@ async fn run() {
     );
 
     if let Err(e) = result {
+        if utils::output::is_json_mode_enabled() {
+            let _ = utils::output::print_error_json("command_error", &e.to_string());
+            std::process::exit(1);
+        }
+
         let mut hints = recovery_hints(&command_name, &e);
         // Augment the static command-specific hints with the AI Contextual
         // Help engine. Patterns that did not match the static rule table
