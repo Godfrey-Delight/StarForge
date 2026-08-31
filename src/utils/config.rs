@@ -1027,7 +1027,12 @@ fn unique_temp_path(dir: &std::path::Path) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    dir.join(format!(".starforge-{}-{}-{}.tmp", std::process::id(), nanos, n))
+    dir.join(format!(
+        ".starforge-{}-{}-{}.tmp",
+        std::process::id(),
+        nanos,
+        n
+    ))
 }
 
 /// Rename `source` over `target`.
@@ -1655,7 +1660,10 @@ telemetry_enabled = true
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
-        assert!(leftovers.is_empty(), "stray tmp files left behind: {leftovers:?}");
+        assert!(
+            leftovers.is_empty(),
+            "stray tmp files left behind: {leftovers:?}"
+        );
     }
 
     #[test]

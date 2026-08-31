@@ -344,10 +344,6 @@ impl PluginManager {
     }
 
     pub fn execute(&self, name: &str, args: &[String]) -> Result<(), String> {
-        if let Some((plugin, _)) = self.plugins.get(name) {
-            plugin.execute(args)
-        } else {
-            Err(format!("Plugin '{}' not found", name))
         let (plugin, _) = self
             .plugins
             .get(name)

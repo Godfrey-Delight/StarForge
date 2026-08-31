@@ -554,8 +554,8 @@ async fn handle_status(args: StatusArgs) -> Result<()> {
     p::header("Deployment Status Timeline");
     crate::utils::config::validate_network(&args.network)?;
 
-    let mut timeline = deployment_timeline::DeploymentTimeline::new(&args.id)
-        .with_max_retries(args.max_retries);
+    let mut timeline =
+        deployment_timeline::DeploymentTimeline::new(&args.id).with_max_retries(args.max_retries);
     if let Some(hash) = &args.tx_hash {
         timeline = timeline.with_tx_hash(hash);
     }
