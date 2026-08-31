@@ -48,8 +48,32 @@ pub struct Balance {
 }
 
 pub async fn fund_account(public_key: &str, network: &str) -> Result<()> {
-    let friendbot =
-        friendbot_url(network)?.unwrap_or_else(|| "https://friendbot.stellar.org".to_string());
+    let net_cfg = network_config(network)?;
+
+    // Gate Friendbot by verified network identity & passphrase
+    if network.eq_ignore_ascii_case("mainnet")
+        || net_cfg.passphrase.as_deref() == Some("Public Global Stellar Network ; September 2015")
+        || net_cfg.horizon_url.contains("horizon.stellar.org")
+    {
+        anyhow::bail!(
+            "Friendbot cannot be used on mainnet or production networks. \
+             Friendbot is only available on test networks (e.g. testnet, standalone, futurenet).\n\
+             Verify your active network: starforge network show"
+        );
+    }
+
+    let friendbot = match net_cfg.friendbot_url {
+        Some(url) => url,
+        None if network.eq_ignore_ascii_case("testnet") => "https://friendbot.stellar.org".to_string(),
+        None => {
+            anyhow::bail!(
+                "Network '{}' does not have a Friendbot faucet URL configured.\n\
+                 Add one using: starforge network add <name> --horizon-url <url> --friendbot-url <url>",
+                network
+            );
+        }
+    };
+
     let separator = if friendbot.contains('?') { '&' } else { '?' };
     let url = format!("{}{}addr={}", friendbot, separator, public_key);
 
