@@ -501,22 +501,20 @@ pub fn analyse_compat(
     let old_spec = decode_spec_model(old_bytes);
     let new_spec = decode_spec_model(new_bytes);
 
-    match (&old_spec, &new_spec) {
-        (Err(err), _) => issues.push(CompatIssue {
+    if let (Err(err), _) = (&old_spec, &new_spec) {
+        issues.push(CompatIssue {
             kind: "old-abi-metadata-missing".to_string(),
             severity: "warning".to_string(),
             description: format!("Unable to decode old contract ABI metadata: {err}"),
-        }),
-        _ => {}
+        })
     }
 
-    match (&old_spec, &new_spec) {
-        (_, Err(err)) => issues.push(CompatIssue {
+    if let (_, Err(err)) = (&old_spec, &new_spec) {
+        issues.push(CompatIssue {
             kind: "new-abi-metadata-missing".to_string(),
             severity: "warning".to_string(),
             description: format!("Unable to decode new contract ABI metadata: {err}"),
-        }),
-        _ => {}
+        })
     }
 
     let abi = match (&old_spec, &new_spec) {
@@ -1849,7 +1847,6 @@ fn short_id(id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use stellar_xdr::curr::{
         Limits, ScSpecEntry, ScSpecFunctionInputV0, ScSpecFunctionV0, ScSpecTypeDef, ScSpecTypeUdt,
         ScSpecUdtStructFieldV0, ScSpecUdtStructV0, ScSymbol, StringM, VecM, WriteXdr,

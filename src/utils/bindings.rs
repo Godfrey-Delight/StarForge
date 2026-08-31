@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::path::Path;
 use stellar_xdr::curr::{
     Limited, Limits, ReadXdr, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecUdtEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionV0,
+    ScSpecUdtStructV0,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,9 +75,31 @@ pub fn generate_bindings(wasm_path: &Path, language: BindingLanguage) -> Result<
         anyhow::bail!("No contract functions found in WASM metadata");
     }
 
-    generate_from_metadata(&metadata, language)
+    match language {
+        BindingLanguage::Rust => Ok(generate_rust(&metadata)),
+        BindingLanguage::TypeScript => Ok(generate_typescript(&metadata)),
+        BindingLanguage::Python => Ok(generate_python(&metadata)),
+        BindingLanguage::Go => Ok(generate_go(&metadata)),
+    }
 }
 
+pub fn generate_from_metadata(
+    metadata: &ContractMetadata,
+    language: BindingLanguage,
+) -> Result<String> {
+    match language {
+        BindingLanguage::Rust => Ok(generate_rust(metadata)),
+        BindingLanguage::TypeScript => Ok(generate_typescript(metadata)),
+        BindingLanguage::Python => Ok(generate_python(metadata)),
+        BindingLanguage::Go => Ok(generate_go(metadata)),
+    }
+}
+fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
+
+/// Generate a language binding from already-parsed contract metadata.
+///
+/// This is the single dispatch point used both by [`generate_bindings`] (which
+/// reads the WASM spec first) and by tests that build metadata directly.
 pub fn generate_from_metadata(
     metadata: &ContractMetadata,
     language: BindingLanguage,

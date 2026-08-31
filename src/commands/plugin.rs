@@ -346,17 +346,17 @@ fn list(json: bool) -> Result<()> {
         let plugins: Vec<PluginSummary> = registry::plugin_list_entries(&reg)
             .into_iter()
             .map(|entry| PluginSummary {
-                name: entry.name.clone(),
-                version: entry.plugin_version.clone(),
+                name: entry.name,
+                version: entry.plugin_version,
                 trust: entry.trust.label().to_string(),
-                source: entry.source.clone(),
-                description: entry.description.clone(),
+                source: entry.source,
+                description: entry.description,
                 commands: entry
                     .commands
-                    .iter()
+                    .into_iter()
                     .map(|cmd| PluginCommandSummary {
-                        name: cmd.name.clone(),
-                        description: cmd.description.clone(),
+                        name: cmd.name,
+                        description: cmd.description,
                     })
                     .collect(),
             })
@@ -376,16 +376,15 @@ fn list(json: bool) -> Result<()> {
 
     p::kv("StarForge core version", CORE_VERSION);
     p::separator();
+    let list_entries = registry::plugin_list_entries(&reg);
 
-    let entries = registry::plugin_list_entries(&reg);
-
-    let plugin_rows: Vec<Vec<String>> = entries
+    let plugin_rows: Vec<Vec<String>> = list_entries
         .iter()
         .map(|entry| {
             vec![
                 entry.name.clone(),
                 entry.plugin_version.clone(),
-                entry.trust.label().to_string(),
+                entry.trust.clone(),
                 entry.description.clone(),
             ]
         })
@@ -395,6 +394,7 @@ fn list(json: bool) -> Result<()> {
         &plugin_rows,
     );
 
+    let entries = reg.plugins.clone();
     let command_rows: Vec<Vec<String>> = entries
         .iter()
         .flat_map(|entry| {
@@ -427,7 +427,7 @@ fn load() -> Result<()> {
         return Ok(());
     }
 
-    let config = config::load().unwrap_or_default();
+    let _config = config::load().unwrap_or_default();
 
     // Warn about any unknown-trust plugins before loading.
     for pl in reg.plugins.iter().filter(|p| {
@@ -550,6 +550,9 @@ fn uninstall(name: String, purge: bool, yes: bool) -> Result<()> {
     Ok(())
 }
 
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn discover_commands_from_library(lib_path: &str) -> Result<Vec<RegisteredCommand>> {
     let path = Path::new(lib_path);
     let mut pm = PluginManager::new();
@@ -580,7 +583,7 @@ fn update(name: Option<String>, yes: bool) -> Result<()> {
         return Ok(());
     }
 
-    let config = config::load().unwrap_or_default();
+    let _config = config::load().unwrap_or_default();
 
     let to_update: Vec<_> = match &name {
         Some(n) => {
@@ -790,7 +793,7 @@ fn verify(name: Option<String>, deep: bool, runtime_check: bool) -> Result<()> {
         None => reg.plugins.iter().collect(),
     };
 
-    let config = config::load().unwrap_or_default();
+    let _config = config::load().unwrap_or_default();
     let mut all_ok = true;
 
     for pl in &to_check {
