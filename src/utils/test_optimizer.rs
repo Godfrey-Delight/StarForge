@@ -231,6 +231,10 @@ impl TestOptimizer {
     }
 
     fn save_state(&self) -> Result<()> {
+        if !self.config_dir.exists() {
+            fs::create_dir_all(&self.config_dir)
+                .with_context(|| format!("Failed to create {}", self.config_dir.display()))?;
+        }
         // The directory is created by `new()`, but an optimizer can also be
         // built for a directory that does not exist yet (and a user can delete
         // it between runs), so make sure it is there before writing.

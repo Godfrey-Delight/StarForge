@@ -324,7 +324,6 @@ fn list(json: bool) -> Result<()> {
 
     p::kv("StarForge core version", CORE_VERSION);
     p::separator();
-
     let list_entries = registry::plugin_list_entries(&reg);
 
     let plugin_rows: Vec<Vec<String>> = list_entries

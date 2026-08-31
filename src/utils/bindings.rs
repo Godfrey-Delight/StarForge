@@ -94,6 +94,7 @@ pub fn generate_from_metadata(
         BindingLanguage::Go => Ok(generate_go(metadata)),
     }
 }
+fn read_spec_entries(wasm: &[u8]) -> Result<Vec<ScSpecEntry>> {
 
 /// Generate a language binding from already-parsed contract metadata.
 ///
