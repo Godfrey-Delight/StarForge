@@ -182,12 +182,18 @@ pub async fn fetch_network_passphrase(network: &str) -> Result<String> {
         .await
         .with_context(|| format!("Could not reach Horizon endpoint '{}'", endpoint))?;
     if !response.status().is_success() {
-        anyhow::bail!("Horizon endpoint '{}' returned HTTP {}", endpoint, response.status());
+        anyhow::bail!(
+            "Horizon endpoint '{}' returned HTTP {}",
+            endpoint,
+            response.status()
+        );
     }
-    let root: HorizonRoot = response
-        .json()
-        .await
-        .with_context(|| format!("Horizon endpoint '{}' did not provide network identity", endpoint))?;
+    let root: HorizonRoot = response.json().await.with_context(|| {
+        format!(
+            "Horizon endpoint '{}' did not provide network identity",
+            endpoint
+        )
+    })?;
     Ok(root.network_passphrase)
 }
 

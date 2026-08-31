@@ -1108,7 +1108,12 @@ fn unique_temp_path(dir: &std::path::Path) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    dir.join(format!(".starforge-{}-{}-{}.tmp", std::process::id(), nanos, n))
+    dir.join(format!(
+        ".starforge-{}-{}-{}.tmp",
+        std::process::id(),
+        nanos,
+        n
+    ))
 }
 
 /// Rename `source` over `target`.
@@ -1170,7 +1175,9 @@ fn write_config_backup(config: &Config) -> Result<std::path::PathBuf> {
     Ok(backup_path)
 }
 
-// Keep the old name so `rollback_config` still compiles.
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn backup_config(config: &Config) -> Result<()> {
     write_config_backup(config).map(|_| ())
 }
@@ -1209,7 +1216,7 @@ pub fn rollback_config(version: &str) -> Result<()> {
 }
 
 thread_local! {
-    static TEST_CONFIG_DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+    static TEST_CONFIG_DIR_OVERRIDE: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
 }
 
 pub fn set_test_config_dir(path: PathBuf) {
@@ -1745,7 +1752,10 @@ telemetry_enabled = true
             .filter_map(|entry| entry.ok())
             .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
             .collect();
-        assert!(leftovers.is_empty(), "stray tmp files left behind: {leftovers:?}");
+        assert!(
+            leftovers.is_empty(),
+            "stray tmp files left behind: {leftovers:?}"
+        );
     }
 
     #[test]

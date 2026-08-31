@@ -388,8 +388,8 @@ fn comparator_interval(c: &Comparator) -> Interval {
                 inclusive: true,
             }),
             upper: Some(Bound {
-                value: if c.minor.is_some() {
-                    Version::new(c.major, c.minor.unwrap() + 1, 0)
+                value: if let Some(minor) = c.minor {
+                    Version::new(c.major, minor + 1, 0)
                 } else {
                     Version::new(c.major + 1, 0, 0)
                 },

@@ -8,8 +8,7 @@ use clap::Subcommand;
 use colored::*;
 use ed25519_dalek::{Signer, SigningKey};
 use rand::RngCore;
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
 use stellar_strkey::ed25519::{PrivateKey as StellarPrivateKey, PublicKey as StellarPublicKey};
@@ -714,6 +713,10 @@ fn prompt_recovery_phrase() -> Result<String> {
     Ok(phrase)
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 async fn create(
     name: String,
     fund: bool,
@@ -1335,6 +1338,10 @@ fn rename(old_name: String, new_name: String) -> Result<()> {
     Ok(())
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 async fn rotate_wallet(
     name: String,
     fund: bool,
@@ -1486,6 +1493,9 @@ async fn rotate_wallet(
     Ok(())
 }
 
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn wallet_history(name: String, reveal: bool) -> Result<()> {
     config::validate_wallet_name(&name)?;
     let cfg = config::load()?;
@@ -1742,6 +1752,10 @@ fn export_wallet(
     Ok(())
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 fn import_wallet(
     name: Option<String>,
     file: Option<PathBuf>,

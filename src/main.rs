@@ -1,5 +1,3 @@
-#![allow(dead_code, unused, clippy::all)]
-
 pub use starforge::commands;
 pub mod curation;
 pub use starforge::plugins;
@@ -876,11 +874,9 @@ fn recovery_hints(command: &str, err: &anyhow::Error) -> Vec<String> {
             hints.push("Analyze a contract: starforge ai-recommend analyze src/lib.rs".into());
             hints.push("Scan a project: starforge ai-recommend scan .".into());
         }
-        "benchmark" | "test" => {
-            if msg.contains("wasm") || msg.contains("not found") {
-                hints.push("Build your contract first: stellar contract build".into());
-                hints.push("Pass the correct --wasm path to the command.".into());
-            }
+        "benchmark" | "test" if (msg.contains("wasm") || msg.contains("not found")) => {
+            hints.push("Build your contract first: stellar contract build".into());
+            hints.push("Pass the correct --wasm path to the command.".into());
         }
 
         _ => {}
@@ -913,7 +909,7 @@ fn handle_external_plugin(args: Vec<String>) -> anyhow::Result<()> {
     let plugin_name = &args[0];
     let plugin_args = &args[1..];
 
-    let cfg = starforge::utils::config::load()?;
+    let _cfg = starforge::utils::config::load()?;
     let reg = plugins::registry::load_registry().unwrap_or_default();
     if reg.plugins.is_empty() {
         anyhow::bail!(

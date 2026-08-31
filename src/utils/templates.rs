@@ -1559,6 +1559,9 @@ pub async fn get_template_by_name_and_version(
     }
 }
 
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 fn semver_cmp(a: &str, b: &str) -> std::cmp::Ordering {
     let parse_version = |v: &str| {
         v.strip_prefix('v')
@@ -1797,6 +1800,10 @@ pub async fn publish_template(
 
 /// Like `publish_template` but also records optional CLI version constraints.
 /// Install a template from a directory or `.zip` archive into the local registry.
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 pub async fn install_template_package(
     package_path: &Path,
     name: String,
@@ -1824,6 +1831,10 @@ pub async fn install_template_package(
     .await
 }
 
+// Each parameter is an independent, named input (CLI flags / distinct config
+// values); bundling them into a struct here would add indirection without
+// reducing real complexity.
+#[allow(clippy::too_many_arguments)]
 pub async fn publish_template_versioned(
     template_path: &Path,
     name: String,
@@ -1875,16 +1886,15 @@ pub async fn publish_template_versioned(
     copy_dir_recursive(&source_root, &dest)?;
 
     let created_at = Utc::now().to_rfc3339();
-    let mut changelog: Vec<ChangelogEntry> = Vec::new();
-    changelog.push(ChangelogEntry {
+    let changelog = vec![ChangelogEntry {
         version: version.clone(),
         date: Utc::now().format("%Y-%m-%d").to_string(),
         notes: "Initial release".to_string(),
-    });
+    }];
 
     let entry = TemplateEntry {
         name: name.clone(),
-        changelog: None,
+        changelog: Some(changelog),
         repository: None,
         security_review: None,
         version: version.clone(),
@@ -2418,6 +2428,16 @@ pub async fn rollback_installed_template(name: &str) -> Result<TemplateUpdateRep
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression test: the registry bundled into the binary is the last-resort
+    /// fallback used when there is no cache and no network (e.g. a fresh,
+    /// offline install). It must always deserialize cleanly.
+    #[test]
+    fn default_registry_parses() {
+        let registry: TemplateRegistry =
+            serde_json::from_str(DEFAULT_REGISTRY).expect("bundled registry.json must parse");
+        assert!(!registry.templates.is_empty());
+    }
 
     fn make_entry(name: &str) -> TemplateEntry {
         TemplateEntry {

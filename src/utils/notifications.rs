@@ -150,9 +150,9 @@ pub fn send_notification(
     Ok(())
 }
 
-fn send_email(destination: &str, _template: &str, data: &HashMap<String, String>) -> Result<()> {
+fn send_email(destination: &str, _template: &str, _data: &HashMap<String, String>) -> Result<()> {
     info(&format!("Email notification queued to {}", destination));
-    return Ok(());
+    Ok(())
 }
 
 fn send_slack(destination: &str, _template: &str, data: &HashMap<String, String>) -> Result<()> {

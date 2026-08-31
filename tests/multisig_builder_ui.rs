@@ -1,6 +1,6 @@
 use starforge::utils::multisig_builder::{
-    generate_signature, proposal_from_template, render_progress_blocks, template_definitions,
-    validate_for_submit, Proposal,
+    calculate_progress, generate_signature, proposal_from_template, render_progress_bar,
+    render_progress_blocks, template_definitions, validate_for_submit, Proposal,
 };
 
 #[test]
@@ -43,6 +43,13 @@ fn progress_tracks_valid_signatures_and_pending_signers() {
 
     assert_eq!(proposal.signatures.len(), 1);
     assert_eq!(proposal.threshold, 2);
+    let progress = calculate_progress(&proposal);
+    assert_eq!(progress.percent, 50);
+    assert!(!proposal.is_complete());
+    assert_eq!(proposal.pending_signers(), vec!["bob", "carol"]);
+
+    let bar = render_progress_bar(&progress, 10);
+    assert_eq!(bar, "[#####.....] 50% (1/2)");
     let (_, percent) = render_progress_blocks(proposal.signatures.len(), proposal.threshold);
     assert_eq!(percent, 50);
     assert!(!proposal.is_complete());
@@ -95,6 +102,8 @@ fn validation_marks_ready_when_threshold_is_met() {
 
     assert!(validate_for_submit(&proposal).is_ok());
     assert!(proposal.is_complete());
+    let progress = calculate_progress(&proposal);
+    assert_eq!(progress.percent, 100);
     let (_, percent) = render_progress_blocks(proposal.signatures.len(), proposal.threshold);
     assert_eq!(percent, 100);
 }

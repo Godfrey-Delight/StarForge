@@ -3,7 +3,7 @@ use std::io::Cursor;
 use std::path::Path;
 use stellar_xdr::curr::{
     Limited, Limits, ReadXdr, ScSpecEntry, ScSpecFunctionV0, ScSpecTypeDef, ScSpecUdtEnumV0,
-    ScSpecUdtStructV0, ScSpecUdtUnionV0,
+    ScSpecUdtStructV0,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

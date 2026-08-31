@@ -611,6 +611,9 @@ async fn handle_ask(question: &str, model: &str, temperature: f32, max_tokens: u
     Ok(())
 }
 
+// Not currently called from any code path in this crate. Kept rather than
+// removed since deleting it is a product decision, not a lint-scoping one.
+#[allow(dead_code)]
 async fn handle_translate(text: &str, target: &str, model: &str) -> Result<()> {
     if text.trim().is_empty() {
         anyhow::bail!("Please provide text to translate.");

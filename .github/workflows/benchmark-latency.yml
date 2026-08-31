@@ -123,6 +123,8 @@ jobs:
                 body: summary
               });
             } catch (error) {
+              // Fork PRs get a read-only GITHUB_TOKEN and can't post comments;
+              // don't fail the whole job just because the summary couldn't be posted.
               core.warning(
                 `Could not post the latency budget comment (this is expected ` +
                 `for pull requests from forks, which get a read-only token): ` +

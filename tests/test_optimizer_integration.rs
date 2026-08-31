@@ -5,7 +5,6 @@
 //! failure pattern analysis, and report generation.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use starforge::utils::test_generator::GeneratedTestCase;
 use starforge::utils::test_optimizer::*;

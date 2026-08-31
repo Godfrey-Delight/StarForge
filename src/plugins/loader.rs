@@ -6,9 +6,8 @@ use crate::plugins::interface::{
 use crate::plugins::manifest;
 use crate::plugins::registry::{load_registry, TrustLevel};
 use anyhow::Result;
-use libloading::{Library, Symbol};
+use libloading::Library;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::path::Path;
 use std::rc::Rc;
 
