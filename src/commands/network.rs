@@ -168,12 +168,28 @@ fn switch(target: String) -> Result<()> {
     Ok(())
 }
 
-fn validate_url(label: &str, url: &str) -> Result<()> {
-    if url.is_empty() {
+pub fn validate_url(label: &str, url: &str) -> Result<()> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
         anyhow::bail!("{} URL cannot be empty", label);
     }
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        anyhow::bail!("{} URL must start with http:// or https://", label);
+    let parsed = reqwest::Url::parse(trimmed).map_err(|e| {
+        anyhow::anyhow!("Invalid {} URL '{}': {}", label, url, e)
+    })?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        anyhow::bail!("{} URL scheme must be http or https, got '{}'", label, parsed.scheme());
+    }
+    if parsed.host_str().is_none() {
+        anyhow::bail!("{} URL missing valid host", label);
+    }
+    Ok(())
+}
+
+pub fn validate_passphrase(passphrase: &Option<String>) -> Result<()> {
+    if let Some(ref p) = passphrase {
+        if p.trim().is_empty() {
+            anyhow::bail!("Network passphrase cannot be empty or only whitespace");
+        }
     }
     Ok(())
 }
@@ -197,10 +213,12 @@ fn add_network(
         validate_url("Friendbot", url)?;
     }
 
+    validate_passphrase(&passphrase)?;
+
     // Normalize trailing slashes so URL construction is consistent downstream
-    let horizon_url = horizon_url.trim_end_matches('/').to_string();
-    let soroban_rpc_url = soroban_rpc_url.map(|u| u.trim_end_matches('/').to_string());
-    let friendbot_url = friendbot_url.map(|u| u.trim_end_matches('/').to_string());
+    let horizon_url = horizon_url.trim().trim_end_matches('/').to_string();
+    let soroban_rpc_url = soroban_rpc_url.map(|u| u.trim().trim_end_matches('/').to_string());
+    let friendbot_url = friendbot_url.map(|u| u.trim().trim_end_matches('/').to_string());
 
     config::add_custom_network(
         &mut cfg,
@@ -459,3 +477,31 @@ fn rename_network(old_name: String, new_name: String) -> Result<()> {
     ));
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_url_valid() {
+        assert!(validate_url("Horizon", "https://horizon.stellar.org").is_ok());
+        assert!(validate_url("Horizon", "http://localhost:8000").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_invalid() {
+        assert!(validate_url("Horizon", "").is_err());
+        assert!(validate_url("Horizon", "   ").is_err());
+        assert!(validate_url("Horizon", "ftp://stellar.org").is_err());
+        assert!(validate_url("Horizon", "not-a-valid-url").is_err());
+    }
+
+    #[test]
+    fn test_validate_passphrase() {
+        assert!(validate_passphrase(&None).is_ok());
+        assert!(validate_passphrase(&Some("Test SDF Network ; September 2015".to_string())).is_ok());
+        assert!(validate_passphrase(&Some("".to_string())).is_err());
+        assert!(validate_passphrase(&Some("   ".to_string())).is_err());
+    }
+}
+
