@@ -103,6 +103,7 @@ pub mod logging;
 pub mod migration_ai;
 pub mod migration_testing;
 pub mod mnemonic;
+pub mod network_guard;
 pub mod mock_soroban;
 pub mod multi_network_deploy;
 pub mod multisig;

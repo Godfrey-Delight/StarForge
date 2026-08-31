@@ -49,6 +49,11 @@ struct Cli {
     /// (also settable via $STARFORGE_NON_INTERACTIVE).
     #[arg(long, global = true)]
     non_interactive: bool,
+
+    /// Allow signing when the configured passphrase differs from the connected endpoint.
+    /// This is unsafe and should only be used with a deliberately trusted endpoint.
+    #[arg(long, global = true)]
+    allow_network_passphrase_mismatch: bool,
 }
 
 #[derive(Subcommand)]
@@ -410,6 +415,7 @@ async fn run() {
     OUTPUT_MODE_INIT.call_once(|| {});
     utils::output::set_json_mode(cli.json);
     utils::interactive::set_non_interactive(cli.non_interactive);
+    utils::network_guard::set_allow_mismatch(cli.allow_network_passphrase_mismatch);
 
     // Initialise structured logging before anything else runs.
     let log_cfg =
