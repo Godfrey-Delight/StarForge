@@ -171,6 +171,7 @@ pub struct FailurePatternReport {
 
 // ── Test Optimizer ──────────────────────────────────────────────────────────
 
+#[derive(Debug)]
 pub struct TestOptimizer {
     pub config_dir: PathBuf,
     pub history: HashMap<String, TestHistory>,
@@ -195,6 +196,17 @@ impl TestOptimizer {
             history,
             cache,
         })
+    }
+
+    /// Construct an optimizer scoped to an explicit directory with empty
+    /// in-memory history and cache, bypassing disk I/O against the real
+    /// config directory. Intended for tests that need an isolated instance.
+    pub fn with_empty_config_dir(config_dir: PathBuf) -> Self {
+        Self {
+            config_dir,
+            history: HashMap::new(),
+            cache: HashMap::new(),
+        }
     }
 
     fn load_history(dir: &Path) -> HashMap<String, TestHistory> {
@@ -222,6 +234,11 @@ impl TestOptimizer {
     }
 
     fn save_state(&self) -> Result<()> {
+        // The directory is created by `new()`, but an optimizer can also be
+        // built for a directory that does not exist yet (and a user can delete
+        // it between runs), so make sure it is there before writing.
+        fs::create_dir_all(&self.config_dir)
+            .with_context(|| format!("Failed to create {}", self.config_dir.display()))?;
         let history_path = self.config_dir.join("history.json");
         fs::write(&history_path, serde_json::to_string_pretty(&self.history)?)
             .with_context(|| format!("Failed to write {}", history_path.display()))?;
@@ -317,9 +334,12 @@ impl TestOptimizer {
             TestCategory::Property
         } else if lower.contains("general") {
             TestCategory::General
-        } else if lower.contains("unit") || lower.contains("test_") {
+        } else if lower.contains("unit") {
             TestCategory::Unit
         } else {
+            // Note: "test_" is not a Unit signal — it prefixes essentially
+            // every test name, and treating it as one leaves General
+            // unreachable.
             TestCategory::General
         }
     }
@@ -330,17 +350,23 @@ impl TestOptimizer {
     ) -> Vec<Vec<OptimizedTestCase>> {
         let mut batches: Vec<Vec<OptimizedTestCase>> = Vec::new();
 
-        let (io_bound, other): (Vec<OptimizedTestCase>, Vec<OptimizedTestCase>) = tests
+        // Each test lands in exactly one bucket: I/O-bound first, then
+        // CPU-bound, then memory-hungry, and whatever is left is general
+        // purpose. Every test must end up in some batch.
+        let (io_bound, rest): (Vec<OptimizedTestCase>, Vec<OptimizedTestCase>) = tests
             .iter()
             .cloned()
             .partition(|t| t.resource_profile.io_intensity > 0.6);
-        let (cpu_only, other): (Vec<_>, Vec<_>) = other
+        let (cpu_only, rest): (Vec<_>, Vec<_>) = rest
             .into_iter()
             .partition(|t| t.resource_profile.cpu_intensity > 0.6);
-        let (mem_only, general): (Vec<_>, Vec<_>) = other
+        let (mem_only, general): (Vec<_>, Vec<_>) = rest
             .into_iter()
             .partition(|t| t.resource_profile.memory_mb > 256);
 
+        // Batch sizes reflect how much of the machine each kind wants:
+        // memory-hungry tests run alone, I/O-bound tests pair up, and cheap
+        // general tests pack densely.
         for chunk in io_bound.chunks(2) {
             batches.push(chunk.to_vec());
         }

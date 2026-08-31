@@ -389,6 +389,7 @@ async fn handle_execute(args: ExecuteArgs) -> Result<()> {
         dry_run: false,
         prompt: Some("Execute this governance upgrade?".to_string()),
         require_type_confirmation: args.network == "mainnet",
+        ..Default::default()
     };
 
     if !confirmation::confirm_operation(&summary, &confirm_config)? {
@@ -454,6 +455,7 @@ fn handle_emergency(args: EmergencyArgs) -> Result<()> {
         dry_run: false,
         prompt: Some("Proceed with emergency upgrade?".to_string()),
         require_type_confirmation: true,
+        ..Default::default()
     };
 
     if !confirmation::confirm_operation(&summary, &confirm_config)? {
