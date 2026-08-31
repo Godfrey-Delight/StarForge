@@ -21,7 +21,13 @@ pub struct JsonEnvelope<T> {
 pub fn set_json_mode(enabled: bool) {
     if enabled {
         env::set_var("STARFORGE_OUTPUT_JSON", "1");
-    } else {
+        return;
+    }
+
+    // Respect an inherited environment setting. The JSON mode flag is a global
+    // opt-in and should not silently wipe a caller-provided
+    // `STARFORGE_OUTPUT_JSON` value that is already in effect.
+    if env::var_os("STARFORGE_OUTPUT_JSON").is_none() {
         env::remove_var("STARFORGE_OUTPUT_JSON");
     }
 }
@@ -84,6 +90,14 @@ mod tests {
             env::set_var("STARFORGE_OUTPUT_JSON", value);
             assert!(!is_json_mode_enabled());
         }
+        env::remove_var("STARFORGE_OUTPUT_JSON");
+    }
+
+    #[test]
+    fn inherited_json_env_is_preserved_when_flag_is_not_set() {
+        env::set_var("STARFORGE_OUTPUT_JSON", "1");
+        set_json_mode(false);
+        assert!(is_json_mode_enabled());
         env::remove_var("STARFORGE_OUTPUT_JSON");
     }
 
