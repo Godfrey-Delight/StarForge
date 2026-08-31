@@ -163,4 +163,5 @@ If you have privacy concerns or questions about telemetry:
 
 - [PRIVACY_POLICY.md](./PRIVACY_POLICY.md) - Full privacy policy
 - [SECURITY_LOGGING_AUDIT.md](./SECURITY_LOGGING_AUDIT.md) - Security logging details
+- [docs/DATA_FLOW_INVENTORY.md](docs/DATA_FLOW_INVENTORY.md) - Full inventory of where secrets and PII can flow across the CLI (config, logs, telemetry, AI prompts, stdout/stderr), the controls in place, and known gaps
 - [GitHub Repository](https://github.com/Josetic224/StarForge) - Open source, fully auditable
