@@ -443,7 +443,10 @@ pub async fn submit_payment_transaction(
     secret_key: &str,
     network: &str,
 ) -> Result<TransactionSubmitResult> {
-    let request = wallet_signer::SigningRequest::local_secret(secret_key.to_string(), network);
+    let request = wallet_signer::SigningRequest::local_secret(
+        zeroize::Zeroizing::new(secret_key.to_string()),
+        network,
+    );
     submit_payment_with_signing(transaction_xdr, &request, network).await
 }
 

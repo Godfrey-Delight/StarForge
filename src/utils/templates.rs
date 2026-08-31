@@ -32,6 +32,12 @@ pub enum TemplateSource {
     },
 }
 
+impl Default for TemplateSource {
+    fn default() -> Self {
+        TemplateSource::Builtin { id: String::new() }
+    }
+}
+
 impl std::fmt::Display for TemplateSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -138,7 +144,7 @@ pub struct ChangelogEntry {
     pub notes: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TemplateEntry {
     pub name: String,
     #[serde(default)]
@@ -2773,10 +2779,11 @@ mod tests {
     async fn test_publish_template_versioned_stores_by_version() {
         let tmp = tempdir().unwrap();
         let home = tmp.path().join("home");
-        let starforge_dir = home.join(".starforge");
-        std::env::set_var("STARFORGE_CONFIG_DIR", starforge_dir.as_os_str());
+        let config_dir = home.join(".starforge");
         std::env::set_var("HOME", home.as_os_str());
-        let registry_dir = starforge_dir.join("templates");
+        std::env::set_var("USERPROFILE", home.as_os_str());
+        std::env::set_var(crate::utils::config::CONFIG_DIR_ENV, &config_dir);
+        let registry_dir = config_dir.join("templates");
         fs::create_dir_all(&registry_dir).unwrap();
         fs::write(
             registry_dir.join("registry.json"),
@@ -2831,7 +2838,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(older.version, "1.0.0");
-        std::env::remove_var("STARFORGE_CONFIG_DIR");
     }
 
     #[test]

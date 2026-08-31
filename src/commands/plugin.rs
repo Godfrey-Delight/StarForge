@@ -296,7 +296,7 @@ fn list(json: bool) -> Result<()> {
             .map(|entry| PluginSummary {
                 name: entry.name.clone(),
                 version: entry.plugin_version.clone(),
-                trust: entry.trust.label().to_string(),
+                trust: entry.trust.clone(),
                 source: entry.source.clone(),
                 description: entry.description.clone(),
                 commands: entry
@@ -333,7 +333,7 @@ fn list(json: bool) -> Result<()> {
             vec![
                 entry.name.clone(),
                 entry.plugin_version.clone(),
-                entry.trust.label().to_string(),
+                entry.trust.clone(),
                 entry.description.clone(),
             ]
         })
