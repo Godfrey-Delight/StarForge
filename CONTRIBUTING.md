@@ -182,10 +182,77 @@ cargo clippy -- -D warnings
 
 # Secure defaults audit
 cargo test --test secure_defaults_audit
+# Doctests (compiles examples in doc comments)
+cargo test --doc
 
 # Dependency security check (requires cargo-deny)
 cargo install cargo-deny
 cargo deny check
+```
+
+### Supply-Chain Policy with cargo-deny
+
+StarForge enforces supply-chain security via [cargo-deny](https://github.com/EmbarkStudios/cargo-deny). The configuration lives in `deny.toml` at the repository root and is enforced in CI on every push and pull request.
+
+**What cargo-deny checks:**
+
+| Check | What it enforces |
+|---|---|
+| **Advisories** | Known security vulnerabilities in dependencies (via the RustSec advisory database) |
+| **Licenses** | Only approved open-source licenses are permitted in the dependency tree |
+| **Bans** | Detects duplicate crate versions and blocks specific crates if needed |
+| **Sources** | Only dependencies from crates.io are allowed; no untrusted registries or git sources |
+
+**Running cargo-deny locally:**
+
+```bash
+# Install (if not present)
+cargo install cargo-deny
+
+# Run all checks
+cargo deny check
+
+# Run a specific check
+cargo deny check advisories
+cargo deny check licenses
+cargo deny check bans
+cargo deny check sources
+
+# Run with all features enabled (matches CI)
+cargo deny check --all-features
+```
+
+**When a dependency fails the license policy:**
+
+1. Run `cargo deny check licenses` to identify the crate and its license.
+2. If the license is compatible with MIT (the project's license), add it to the `allow` list in `deny.toml` under `[licenses].allow` with a comment explaining why.
+3. If the license is incompatible or unclear, investigate an alternative crate or seek a maintainer decision before merging.
+
+**When an advisory is detected:**
+
+1. Check the advisory ID (e.g., `RUSTSEC-2024-0388`) at [rustsec.org](https://rustsec.org).
+2. If the vulnerability affects the project, update the dependency to a patched version.
+3. If the vulnerability is in a dev-only dependency or is otherwise mitigated, add the ID to `[advisories].ignore` in `deny.toml` with a rationale comment.
+4. Never silently ignore advisories — every ignore entry must have a documented justification.
+
+**Source/registry violations:**
+
+- The policy denies all registries except crates.io and all git sources.
+- If a new dependency requires a non-crates.io source, it must be explicitly approved and added to `deny.toml` with a rationale.
+- Path dependencies for workspace members are handled separately by the `[graph]` targets configuration.
+
+**Intentional exceptions:**
+
+The project permits narrow, documented exceptions in `deny.toml`:
+- Advisory ignores include the rationale for each skipped RUSTSEC ID.
+- The `ring` crate has a manual license clarification because it lacks a standard license field.
+- Duplicate crate versions are allowed as warnings (not errors) to maintain compatibility while flagging potential improvements.
+
+**Running the configuration tests:**
+
+```bash
+# Validate the deny.toml configuration
+cargo test --test cargo_deny_config
 ```
 
 ---
@@ -367,7 +434,8 @@ For detailed code style expectations, see [CODE_STYLE_STANDARDS.md](CODE_STYLE_S
 /// # Returns
 /// Description of return value
 ///
-/// # Example
+/// # Examples
+///
 /// ```
 /// let result = my_function(42);
 /// assert_eq!(result, 43);
@@ -377,6 +445,7 @@ pub fn my_function(arg1: i32) -> i32 {
 }
 ```
 
+- **Add compilable doctests** to public utility functions (see [DOCTEST_GUIDELINES.md](DOCTEST_GUIDELINES.md))
 - Keep README and other docs up-to-date with your changes
 - Update CHANGELOG if your change is user-facing
 
@@ -388,10 +457,11 @@ Run this before every commit to catch issues early:
 cargo fmt --all && \
   cargo build --locked && \
   cargo test --locked && \
+  cargo test --doc --locked && \
   cargo clippy --locked -- -D warnings
 ```
 
-All of these are checked in CI.
+All of these are checked in CI. See [DOCTEST_GUIDELINES.md](DOCTEST_GUIDELINES.md) for how to write and maintain doctests.
 
 ---
 
