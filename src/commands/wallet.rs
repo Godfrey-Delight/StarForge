@@ -818,6 +818,32 @@ async fn show(name: String, reveal: bool) -> Result<()> {
         .find(|w| w.name == name)
         .ok_or_else(|| anyhow::anyhow!("Wallet '{}' not found", name))?;
 
+    if reveal {
+        let summary = confirmation::OperationSummary::new(
+            "Reveal Wallet Secret".to_string(),
+            w.network.clone(),
+            confirmation::RiskLevel::High,
+        )
+        .add("Wallet", &w.name)
+        .add("Public Key", &w.public_key)
+        .add("Network", &w.network);
+
+        let confirm_config = confirmation::ConfirmationConfig {
+            risk_level: confirmation::RiskLevel::High,
+            network: w.network.clone(),
+            skip_confirm: false,
+            dry_run: false,
+            prompt: Some("Reveal the secret key for this wallet?".to_string()),
+            require_type_confirmation: true,
+            destructive_action: Some(confirmation::DestructiveAction::SecretReveal),
+            challenge_phrase: None,
+        };
+
+        if !confirmation::confirm_operation(&summary, &confirm_config)? {
+            return Ok(());
+        }
+    }
+
     p::header(&format!("Wallet: {}", w.name));
     p::separator();
     p::kv_accent("Public Key", &w.public_key);
@@ -1109,12 +1135,14 @@ async fn merge_wallet(
         risk_level,
         network: network.clone(),
         skip_confirm,
-        dry_run: false, // This was missing a comma
+        dry_run: false,
         prompt: Some(format!(
             "Type '{}' to confirm merge of account {}:",
             wallet.name, wallet.name
         )),
-        require_type_confirmation: true, // Always require type confirmation for merge
+        require_type_confirmation: true,
+        destructive_action: Some(confirmation::DestructiveAction::AccountMerge),
+        challenge_phrase: Some(wallet.name.clone()),
     };
 
     if !confirmation::confirm_operation(&summary, &confirm_config)? {

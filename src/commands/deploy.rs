@@ -1,6 +1,6 @@
 use crate::commands::analytics as analytics_cmds;
 use crate::utils::{
-    config, confirmation,
+    config, confirmation, deploy_policy,
     deploy_history::{
         self, last_successful, record_deployment, set_contract_id, set_duration, update_status,
         DeployRecord, DeployStatus,
@@ -71,6 +71,13 @@ pub struct DeployArgs {
     /// Emit a machine-readable JSON object instead of the human-readable deployment report
     #[arg(long)]
     pub json: bool,
+    /// Path to organization deploy policy (TOML/YAML). Auto-discovers
+    /// `starforge-deploy-policy.toml` in the current directory when omitted.
+    #[arg(long)]
+    pub policy: Option<PathBuf>,
+    /// Comma-separated checklist item ids satisfied for this deploy (see deploy policy)
+    #[arg(long, value_delimiter = ',')]
+    pub checklist: Option<Vec<String>>,
 }
 
 /// Extract a Soroban contract id (56-char `C…` strkey) from CLI stdout/stderr.
@@ -704,6 +711,18 @@ pub async fn handle(args: DeployArgs) -> Result<()> {
         p::separator();
     }
 
+    // Enforce organization deploy policy when configured
+    let policy_path = args
+        .policy
+        .clone()
+        .or_else(|| deploy_policy::discover_policy_file(std::env::current_dir().unwrap_or_default().as_path()));
+    if let Some(path) = &policy_path {
+        let policy = deploy_policy::load_policy(path)?;
+        let context = deploy_policy::DeployContext::from_env(&args.network, args.execute)
+            .with_overrides(None, args.checklist.clone());
+        deploy_policy::enforce(path, &policy, &context)?;
+    }
+
     // Build operation summary for confirmation
     let risk_level = if args.network == "mainnet" {
         confirmation::RiskLevel::High
@@ -738,6 +757,12 @@ pub async fn handle(args: DeployArgs) -> Result<()> {
         dry_run: !args.execute,
         prompt: Some("Proceed with deployment?".to_string()),
         require_type_confirmation: args.network == "mainnet",
+        destructive_action: if args.network == "mainnet" && args.execute {
+            Some(confirmation::DestructiveAction::MainnetDeploy)
+        } else {
+            None
+        },
+        challenge_phrase: None,
     };
 
     if !confirmation::confirm_operation(&summary, &confirm_config)? {
