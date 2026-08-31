@@ -173,6 +173,15 @@ pub enum TemplateCommands {
         #[arg(long)]
         output: Option<std::path::PathBuf>,
     },
+    /// Validate a template registry (or a single template's metadata) against the registry schema
+    Validate {
+        /// Registry JSON file, or a JSON file holding one template entry.
+        /// Defaults to the local registry, falling back to the bundled one.
+        path: Option<PathBuf>,
+        /// Emit a machine-readable JSON report instead of human-readable output
+        #[arg(long)]
+        json: bool,
+    },
     /// Show security review status for a template (or all templates)
     Audit {
         /// Template name (omit to list the security status of all templates)
@@ -281,6 +290,7 @@ pub async fn handle(cmd: TemplateCommands) -> Result<()> {
         TemplateCommands::Rollback { name } => rollback(name).await,
         TemplateCommands::Test { name, verbose } => template_test(name, verbose).await,
         TemplateCommands::Docs { name, output } => template_docs(name, output).await,
+        TemplateCommands::Validate { path, json } => template_validate(path, json),
         TemplateCommands::Audit { name } => template_audit(name).await,
         TemplateCommands::Customize { path, requirements } => {
             template_customize(path, requirements).await
@@ -1235,6 +1245,78 @@ async fn template_docs(name: String, output: Option<std::path::PathBuf>) -> Resu
         }
     }
     Ok(())
+}
+
+// ─── template validate ────────────────────────────────────────────────────────
+
+/// Check a registry document against `templates/registry.schema.json` and
+/// report every problem, each anchored to the field that caused it.
+///
+/// With no path it checks the registry the CLI would actually load: the local
+/// registry, or the bundled one when no local registry exists yet.
+fn template_validate(path: Option<std::path::PathBuf>, json: bool) -> Result<()> {
+    let report = match path {
+        Some(path) => {
+            if !path.exists() {
+                anyhow::bail!("No such file: {}", path.display());
+            }
+            templates::validate_registry_file(&path)?
+        }
+        None => {
+            let local = templates::active_registry_path()?;
+            if local.exists() {
+                templates::validate_registry_file(&local)?
+            } else {
+                templates::validate_bundled_registry()?
+            }
+        }
+    };
+
+    if json {
+        output::print_json(&serde_json::json!({
+            "origin": report.origin,
+            "valid": report.is_valid(),
+            "errors": report.errors.iter().map(|issue| serde_json::json!({
+                "field": issue.field,
+                "message": issue.message,
+            })).collect::<Vec<_>>(),
+            "warnings": report.warnings.iter().map(|issue| serde_json::json!({
+                "field": issue.field,
+                "message": issue.message,
+            })).collect::<Vec<_>>(),
+        }))?;
+    } else {
+        p::header(&format!("Validating {}", report.origin));
+        for issue in &report.errors {
+            println!(
+                "  {} {}",
+                "✗".red().bold(),
+                issue.to_string().bright_white()
+            );
+        }
+        for issue in &report.warnings {
+            println!("  {} {}", "⚠".yellow().bold(), issue);
+        }
+        if report.is_valid() {
+            p::success(&format!(
+                "Matches the registry schema{}",
+                if report.warnings.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({} warning(s))", report.warnings.len())
+                }
+            ));
+        }
+    }
+
+    if report.is_valid() {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "{} field(s) do not match the template registry schema",
+            report.errors.len()
+        )
+    }
 }
 
 // ─── template audit ───────────────────────────────────────────────────────────
