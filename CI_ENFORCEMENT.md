@@ -95,6 +95,30 @@ cargo deny check sources
 
 ---
 
+### Job: Documentation Tests
+
+**Purpose**: Ensure documentation examples (doctests) compile and pass  
+**Trigger**: Every push and pull request  
+**Status**: ✅ Required (must pass)
+
+```bash
+cargo test --doc --locked
+```
+
+**What it checks:**
+- All ```` ``` ```` and ```` ```no_run ```` doc examples compile successfully
+- Pure-logic examples execute and pass assertions
+- Public utility APIs stay documented with accurate examples
+
+**Local equivalent:**
+```bash
+cargo test --doc --locked
+```
+
+See [DOCTEST_GUIDELINES.md](DOCTEST_GUIDELINES.md) for how to write doctests.
+
+---
+
 ### Job: Build, Test & Clippy
 
 **Purpose**: Compile the project, run tests, and check for common mistakes  
@@ -162,6 +186,40 @@ cargo test --test cli_smoke --locked
 
 ---
 
+### Job: Windows Binary Startup Smoke Tests
+
+**Purpose**: Validate that the Windows binary starts and its core help/doctor
+surface works, mirroring what users get from the shipping `.zip`  
+**Trigger**: Every push and pull request (`ci.yml` → `cli-windows`) and on
+installer changes (`installer-tests.yml` → `installer-windows`)  
+**Status**: ✅ Required (must pass) — also release-blocking via `release.yml`
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File tests/installer/windows_smoke.ps1 -Binary target\release\starforge.exe
+```
+
+**What it tests:**
+- `starforge --version` exits 0
+- `starforge --help` exits 0
+- `starforge info` exits 0 (binary startup)
+- `starforge config --help` exits 0 and lists `doctor`
+- `starforge config doctor` runs diagnostically in an isolated
+  `STARFORGE_CONFIG_DIR`; the offline `schema` finding must pass while
+  network/toolchain findings (Horizon, Soroban RPC, Stellar CLI on PATH) are
+  reported without failing the job
+
+**Failure visibility:** each failing check prints the exact command, its exit
+code, and captured output. Full output is teed to `windows-smoke.log` and
+uploaded as a CI artifact on failure.
+
+**Windows support status:** StarForge ships Windows `x86_64` binaries as a
+`.zip` from [Releases](https://github.com/Josetic224/StarForge/releases).
+Windows binaries are built and smoke-tested in CI on every push and pull
+request, and the release pipeline refuses to publish a Windows binary that
+fails these startup/help checks.
+
+---
+
 ## Acceptance Criteria Compliance
 
 ### ✅ CI Fails Clearly on Regressions
@@ -174,7 +232,9 @@ Each job has clear, descriptive names and output:
 | Lint violations | Build, Test & Clippy | ❌ Specific warning messages |
 | Security issues | Cargo Deny | ❌ Advisory ID and description |
 | Test failures | Build, Test & Clippy | ❌ Test name and assertion |
+| Broken doc examples | Documentation Tests | ❌ Compilation error or assertion failure |
 | Broken CLI | CLI Smoke Tests | ❌ Which command failed |
+| Broken Windows binary | Windows Binary Startup Smoke Tests | ❌ Exact command, exit code, and output (log artifact) |
 
 **Example failure output:**
 ```
@@ -226,13 +286,16 @@ cargo build --locked
 # 3. Run tests
 cargo test --locked
 
-# 4. Check linting
+# 4. Check doctests
+cargo test --doc --locked
+
+# 5. Check linting
 cargo clippy --locked -- -D warnings
 
-# 5. Verify smoke tests
+# 6. Verify smoke tests
 cargo test --test cli_smoke --locked
 
-# 6. Verify CLI JSON output stability contracts
+# 7. Verify CLI JSON output stability contracts
 cargo test --test json_contract_stability --locked
 ```
 
@@ -242,6 +305,7 @@ Or run all at once (simulates CI):
 cargo fmt --all --check && \
   cargo build --locked && \
   cargo test --locked && \
+  cargo test --doc --locked && \
   cargo clippy --locked -- -D warnings && \
   cargo test --test cli_smoke --locked && \
   cargo test --test json_contract_stability --locked
@@ -258,7 +322,7 @@ from `docs/contracts/cli-json-fields.json` unless they are first marked
 
 StarForge enforces GitHub branch protections on the `master` branch:
 
-1. **Required Status Checks**: All CI workflow jobs (`fmt`, `msrv`, `deny`, `build-and-test`, `clippy`, `smoke`, `cli-macos`, `cli-windows`) must pass before a pull request can be merged.
+1. **Required Status Checks**: All CI workflow jobs (`fmt`, `msrv`, `deny`, `doctests`, `build-and-test`, `clippy`, `smoke`, `cli-macos`, `cli-windows`) must pass before a pull request can be merged.
 2. **Conflict-Free Enforcement**: Pull requests with merge conflicts are blocked from merging. Branches must be cleanly rebased against `master`.
 3. **Approved Reviews**: PRs require maintainer review and approval with all conversational threads resolved.
 
