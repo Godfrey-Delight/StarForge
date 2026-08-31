@@ -602,6 +602,15 @@ impl Database {
             .map(|wallet| {
                 let rotation_history: Vec<WalletRotationRecord> =
                     serde_json::from_str(&wallet.rotation_history).unwrap_or_default();
+                let kdf_options = wallet
+                    .secret_key
+                    .as_ref()
+                    .and_then(|s| crate::utils::crypto::extract_kdf_metadata(s).ok())
+                    .map(|m| crate::utils::crypto::KdfOptions {
+                        mem: Some(m.mem),
+                        iterations: Some(m.iterations),
+                        parallelism: Some(m.parallelism),
+                    });
                 WalletEntry {
                     name: wallet.name,
                     public_key: wallet.public_key,
@@ -609,6 +618,7 @@ impl Database {
                     network: wallet.network,
                     created_at: wallet.created_at,
                     funded: wallet.funded,
+                    kdf_options,
                     rotation_history,
                 }
             })
