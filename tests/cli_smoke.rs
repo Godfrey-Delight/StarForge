@@ -456,42 +456,112 @@ fn config_subcommand_sets_and_shows_telemetry() {
 }
 
 #[test]
+fn telemetry_defaults_to_disabled() {
+    let home = isolated_home();
+
+    let output = starforge(home.path())
+        .args(["telemetry", "status"])
+        .output()
+        .expect("spawn telemetry status");
+    assert_success(&output, "starforge telemetry status");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("false"));
+}
+
+#[test]
 fn telemetry_subcommand_toggles_status() {
     let home = isolated_home();
 
-    // Disable telemetry
-    let output2 = starforge(home.path())
-        .args(["telemetry", "disable"])
-        .output()
-        .expect("spawn telemetry disable");
-    assert_success(&output2, "starforge telemetry disable");
-    let stdout2 = String::from_utf8_lossy(&output2.stdout);
-    assert!(stdout2.contains("disabled"));
-
-    // Check disabled status
-    let output3 = starforge(home.path())
-        .args(["telemetry", "status"])
-        .output()
-        .expect("spawn telemetry status");
-    assert_success(&output3, "starforge telemetry status");
-    let stdout3 = String::from_utf8_lossy(&output3.stdout);
-    assert!(stdout3.contains("false"));
-
-    // Enable telemetry
-    let output4 = starforge(home.path())
+    // Enable telemetry first from the default-off state
+    let output1 = starforge(home.path())
         .args(["telemetry", "enable"])
         .output()
         .expect("spawn telemetry enable");
-    assert_success(&output4, "starforge telemetry enable");
+    assert_success(&output1, "starforge telemetry enable");
 
     // Check enabled status
-    let output5 = starforge(home.path())
+    let output2 = starforge(home.path())
         .args(["telemetry", "status"])
         .output()
         .expect("spawn telemetry status");
-    assert_success(&output5, "starforge telemetry status");
-    let stdout5 = String::from_utf8_lossy(&output5.stdout);
-    assert!(stdout5.contains("true"));
+    assert_success(&output2, "starforge telemetry status");
+    let stdout2 = String::from_utf8_lossy(&output2.stdout);
+    assert!(stdout2.contains("true"));
+
+    // Disable telemetry
+    let output3 = starforge(home.path())
+        .args(["telemetry", "disable"])
+        .output()
+        .expect("spawn telemetry disable");
+    assert_success(&output3, "starforge telemetry disable");
+    let stdout3 = String::from_utf8_lossy(&output3.stdout);
+    assert!(stdout3.contains("disabled"));
+
+    // Check disabled status
+    let output4 = starforge(home.path())
+        .args(["telemetry", "status"])
+        .output()
+        .expect("spawn telemetry status");
+    assert_success(&output4, "starforge telemetry status");
+    let stdout4 = String::from_utf8_lossy(&output4.stdout);
+    assert!(stdout4.contains("false"));
+}
+
+#[test]
+fn telemetry_payload_and_reset_work() {
+    let home = isolated_home();
+
+    let enable = starforge(home.path())
+        .args(["telemetry", "enable"])
+        .output()
+        .expect("spawn telemetry enable");
+    assert_success(&enable, "starforge telemetry enable");
+
+    let mut cmd = starforge(home.path());
+    cmd.args(["deploy"]);
+    cmd.env("STARFORGE_TELEMETRY", "1");
+    let output = cmd.output().expect("spawn deploy");
+    let _ = output;
+
+    let payload = starforge(home.path())
+        .args(["telemetry", "payload"])
+        .output()
+        .expect("spawn telemetry payload");
+    assert_success(&payload, "starforge telemetry payload");
+    let stdout = String::from_utf8_lossy(&payload.stdout);
+    assert!(stdout.contains("\"event\""));
+
+    let reset = starforge(home.path())
+        .args(["telemetry", "reset"])
+        .output()
+        .expect("spawn telemetry reset");
+    assert_success(&reset, "starforge telemetry reset");
+    let payload_after = starforge(home.path())
+        .args(["telemetry", "payload"])
+        .output()
+        .expect("spawn telemetry payload");
+    assert_success(&payload_after, "starforge telemetry payload after reset");
+    let stdout_after = String::from_utf8_lossy(&payload_after.stdout);
+    assert!(stdout_after.contains("No telemetry payloads recorded yet."));
+}
+
+#[test]
+fn telemetry_invalid_bool_value_fails_cleanly() {
+    let home = isolated_home();
+
+    let output = starforge(home.path())
+        .args(["config", "set", "telemetry.enabled", "maybe"])
+        .output()
+        .expect("spawn config set invalid telemetry");
+
+    assert!(!output.status.success(), "invalid bool should fail");
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(combined.contains("Expected boolean value") || combined.contains("Invalid"));
 }
 
 #[test]
